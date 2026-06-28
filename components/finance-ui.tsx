@@ -1,7 +1,7 @@
 import { palette, radii, spacing } from '@/constants/theme';
 import { PropsWithChildren } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Edge, SafeAreaView } from 'react-native-safe-area-context';
+import { Edge, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type CardProps = PropsWithChildren<{
   tone?: 'default' | 'dark' | 'soft';
@@ -12,11 +12,21 @@ type ScreenProps = PropsWithChildren<{
 }>;
 
 export function Screen({ children, edges }: ScreenProps) {
-  // White safe-area insets (status bar strip + bottom) with a cream content area.
+  // Paint only the top (status bar) inset white; keep the rest of the screen cream so there is
+  // no white band above the tab bar. Detail screens that render a header omit the 'top' edge,
+  // so their white status strip comes from the header instead.
+  const insets = useSafeAreaInsets();
+  const activeEdges: Edge[] = edges ?? ['top', 'bottom', 'left', 'right'];
+  const showTopStrip = activeEdges.includes('top');
+  const bodyEdges = activeEdges.filter((edge) => edge !== 'top');
+
   return (
-    <SafeAreaView edges={edges} style={styles.safeArea}>
-      <View style={styles.screen}>{children}</View>
-    </SafeAreaView>
+    <View style={styles.screen}>
+      {showTopStrip ? <View style={[styles.statusStrip, { height: insets.top }]} /> : null}
+      <SafeAreaView edges={bodyEdges} style={styles.body}>
+        {children}
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -71,8 +81,10 @@ export const financeStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  safeArea: {
+  statusStrip: {
     backgroundColor: palette.white,
+  },
+  body: {
     flex: 1,
   },
   screen: {
