@@ -21,13 +21,13 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: palette.background },
+        headerStyle: { backgroundColor: palette.white },
         headerTitleStyle: { color: palette.ink, fontWeight: '800' },
         headerShown: false,
         tabBarActiveTintColor: palette.emerald,
         tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
         tabBarStyle: {
-          backgroundColor: palette.surface,
+          backgroundColor: palette.white,
           borderTopColor: palette.border,
           minHeight: 62,
           paddingBottom: 8,

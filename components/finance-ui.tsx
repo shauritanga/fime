@@ -12,7 +12,12 @@ type ScreenProps = PropsWithChildren<{
 }>;
 
 export function Screen({ children, edges }: ScreenProps) {
-  return <SafeAreaView edges={edges} style={styles.screen}>{children}</SafeAreaView>;
+  // White safe-area insets (status bar strip + bottom) with a cream content area.
+  return (
+    <SafeAreaView edges={edges} style={styles.safeArea}>
+      <View style={styles.screen}>{children}</View>
+    </SafeAreaView>
+  );
 }
 
 export function Card({ children, tone = 'default' }: CardProps) {
@@ -66,6 +71,10 @@ export const financeStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: palette.white,
+    flex: 1,
+  },
   screen: {
     backgroundColor: palette.background,
     flex: 1,

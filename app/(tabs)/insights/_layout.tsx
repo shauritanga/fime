@@ -6,7 +6,7 @@ export default function InsightsLayout() {
     <Stack
       screenOptions={{
         contentStyle: { backgroundColor: palette.background },
-        headerStyle: { backgroundColor: palette.background },
+        headerStyle: { backgroundColor: palette.white },
         headerTintColor: palette.ink,
         headerTitleStyle: { fontWeight: '800' },
       }}>
