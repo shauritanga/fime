@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#F7F2EA",
-        "foregroundImage": "./assets/images/fime_logo.png"
+        "foregroundImage": "./assets/images/android-icon-fime-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.shauritanga.fime"
