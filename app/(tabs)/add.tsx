@@ -6,8 +6,16 @@ import { useFinance } from '@/lib/finance/useFinance';
 import type { TransactionType } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+
+function toISODate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export default function AddScreen() {
   const { addTransaction, expenseCategories, incomeCategories } = useFinance();
@@ -15,10 +23,25 @@ export default function AddScreen() {
   const [amount, setAmount] = useState('');
   const [transactionTitle, setTransactionTitle] = useState('');
   const [date, setDate] = useState(todayISO());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const categories = type === 'income' ? incomeCategories : expenseCategories;
   const [categoryId, setCategoryId] = useState('');
 
   const selectedCategoryId = useMemo(() => categoryId || categories[0]?.id || '', [categories, categoryId]);
+
+  const dateValue = useMemo(() => new Date(`${date}T12:00:00`), [date]);
+  const dateLabel = useMemo(
+    () => new Intl.DateTimeFormat('en-TZ', { day: 'numeric', month: 'short', year: 'numeric' }).format(dateValue),
+    [dateValue]
+  );
+
+  function onChangeDate(event: DateTimePickerEvent, selected?: Date) {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (event.type === 'dismissed' || !selected) {
+      return;
+    }
+    setDate(toISODate(selected));
+  }
 
   async function submit() {
     const value = Number(amount.replace(/,/g, ''));
@@ -122,13 +145,12 @@ export default function AddScreen() {
           </View>
 
           <Text style={styles.inputLabel}>Date</Text>
-          <TextInput
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={palette.muted}
-            style={styles.input}
-            value={date}
-          />
+          <Pressable onPress={() => setShowDatePicker(true)} style={styles.input}>
+            <Text style={styles.dateText}>{dateLabel}</Text>
+          </Pressable>
+          {showDatePicker ? (
+            <DateTimePicker value={dateValue} mode="date" onChange={onChangeDate} />
+          ) : null}
 
           <Pressable onPress={submit} style={styles.submit}>
             <Text style={styles.submitText}>Save transaction</Text>
@@ -191,6 +213,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
+  },
+  dateText: {
+    color: palette.ink,
+    fontSize: 16,
   },
   categoryChip: {
     backgroundColor: palette.background,
