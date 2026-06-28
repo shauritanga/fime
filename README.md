@@ -1,4 +1,8 @@
-# Fime
+<p align="center">
+  <img src="assets/images/fime_logo.png" alt="Fime logo" width="120" />
+</p>
+
+<h1 align="center">Fime</h1>
 
 Fime is an offline-first personal finance app built with Expo Router, React Native, and SQLite. It helps track income, expenses, budgets, goals, subscriptions, loans, recurring transactions, and CSV exports from local device data.
 
