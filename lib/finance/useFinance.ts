@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createLoan,
   createTransaction,
@@ -51,6 +51,8 @@ const emptySummary: DashboardSummary = {
 
 export function useFinance() {
   const db = useSQLiteContext();
+  const mountedRef = useRef(true);
+  const refreshQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<BudgetProgress[]>([]);
@@ -62,39 +64,55 @@ export function useFinance() {
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    const [
-      nextCategories,
-      nextTransactions,
-      nextBudgets,
-      nextSummary,
-      nextGoals,
-      nextSubscriptions,
-      nextRecurringTransactions,
-      nextLoans,
-      nextLoanActivities,
-    ] = await Promise.all([
-      listCategories(db),
-      listTransactions(db),
-      listBudgetProgress(db),
-      getDashboardSummary(db),
-      listSavingsGoals(db),
-      listSubscriptions(db),
-      listRecurringTransactions(db),
-      listLoans(db),
-      listLoanActivities(db),
-    ]);
+  useEffect(() => {
+    mountedRef.current = true;
 
-    setCategories(nextCategories);
-    setTransactions(nextTransactions);
-    setBudgets(nextBudgets);
-    setSummary(nextSummary);
-    setGoals(nextGoals);
-    setSubscriptions(nextSubscriptions);
-    setRecurringTransactions(nextRecurringTransactions);
-    setLoans(nextLoans);
-    setLoanActivities(nextLoanActivities);
-    setLoading(false);
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refresh = useCallback(() => {
+    const runRefresh = async () => {
+      const nextCategories = await listCategories(db);
+      const nextTransactions = await listTransactions(db);
+      const nextBudgets = await listBudgetProgress(db);
+      const nextSummary = await getDashboardSummary(db);
+      const nextGoals = await listSavingsGoals(db);
+      const nextSubscriptions = await listSubscriptions(db);
+      const nextRecurringTransactions = await listRecurringTransactions(db);
+      const nextLoans = await listLoans(db);
+      const nextLoanActivities = await listLoanActivities(db);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setCategories(nextCategories);
+      setTransactions(nextTransactions);
+      setBudgets(nextBudgets);
+      setSummary(nextSummary);
+      setGoals(nextGoals);
+      setSubscriptions(nextSubscriptions);
+      setRecurringTransactions(nextRecurringTransactions);
+      setLoans(nextLoans);
+      setLoanActivities(nextLoanActivities);
+    };
+
+    const nextRefresh = refreshQueueRef.current
+      .catch(() => undefined)
+      .then(runRefresh)
+      .catch((error) => {
+        console.warn('Unable to refresh finance data', error);
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      });
+
+    refreshQueueRef.current = nextRefresh;
+    return nextRefresh;
   }, [db]);
 
   useEffect(() => {

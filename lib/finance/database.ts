@@ -151,6 +151,13 @@ export async function listTransactions(db: SQLiteDatabase) {
   return db.getAllAsync<Transaction>('SELECT * FROM transactions ORDER BY date DESC, id DESC');
 }
 
+export async function listTransactionsByPeriod(db: SQLiteDatabase, period = currentPeriod()) {
+  return db.getAllAsync<Transaction>(
+    'SELECT * FROM transactions WHERE substr(date, 1, 7) = ? ORDER BY date DESC, id DESC',
+    period
+  );
+}
+
 export async function createTransaction(db: SQLiteDatabase, input: TransactionInput) {
   if (input.type === 'expense') {
     await ensureExpenseBudget(db, input.categoryId, input.date);
@@ -327,10 +334,8 @@ export async function postDueRecurringTransactions(db: SQLiteDatabase, today = n
 }
 
 export async function listLoans(db: SQLiteDatabase) {
-  const [loans, activities] = await Promise.all([
-    db.getAllAsync<Loan>('SELECT * FROM loans ORDER BY createdAt DESC, dueDate ASC'),
-    db.getAllAsync<LoanActivity>('SELECT * FROM loan_activities ORDER BY date DESC, id DESC'),
-  ]);
+  const loans = await db.getAllAsync<Loan>('SELECT * FROM loans ORDER BY createdAt DESC, dueDate ASC');
+  const activities = await db.getAllAsync<LoanActivity>('SELECT * FROM loan_activities ORDER BY date DESC, id DESC');
 
   const activityMap = new Map<string, LoanActivity[]>();
   for (const activity of activities) {
@@ -520,28 +525,28 @@ export async function listBudgetProgress(
   db: SQLiteDatabase,
   period = currentPeriod()
 ): Promise<BudgetProgress[]> {
-  const [budgets, categories] = await Promise.all([listBudgets(db, period), listCategories(db)]);
+  const budgets = await listBudgets(db, period);
+  const categories = await listCategories(db);
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
 
-  const progress = await Promise.all(
-    budgets.map(async (budget) => {
-      const spent = await sumCategorySpend(db, budget.categoryId, period);
-      const category = categoryMap.get(budget.categoryId);
+  const progress: BudgetProgress[] = [];
+  for (const budget of budgets) {
+    const spent = await sumCategorySpend(db, budget.categoryId, period);
+    const category = categoryMap.get(budget.categoryId);
 
-      return {
-        ...budget,
-        category: category ?? {
-          id: budget.categoryId,
-          name: 'Category',
-          type: 'expense' as const,
-          color: '#888888',
-        },
-        spent,
-        remaining: budget.limitAmount - spent,
-        progress: budget.limitAmount > 0 ? Math.min(spent / budget.limitAmount, 1) : 0,
-      };
-    })
-  );
+    progress.push({
+      ...budget,
+      category: category ?? {
+        id: budget.categoryId,
+        name: 'Category',
+        type: 'expense' as const,
+        color: '#888888',
+      },
+      spent,
+      remaining: budget.limitAmount - spent,
+      progress: budget.limitAmount > 0 ? Math.min(spent / budget.limitAmount, 1) : 0,
+    });
+  }
 
   return progress.sort((a, b) => b.progress - a.progress);
 }

@@ -6,22 +6,18 @@ import { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, Muted, ProgressBar, Screen } from '@/components/finance-ui';
+import { Card, Muted, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { formatMoney } from '@/lib/finance/format';
-import { useFinance } from '@/lib/finance/useFinance';
 
 export default function ProfileScreen() {
   const { profile, signOut, updateProfile } = useAuth();
-  const { loading, summary, transactions } = useFinance();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name ?? '');
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber ?? '');
   const [imageUri, setImageUri] = useState(profile?.imageUri);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const budgetRatio = summary.budgetLimit > 0 ? summary.budgetSpent / summary.budgetLimit : 0;
 
   async function handleSave() {
     setError('');
@@ -122,45 +118,59 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
-        <View style={styles.summaryGrid}>
-          <MetricCard label="Available" loading={loading} value={formatMoney(summary.balance)} />
-          <MetricCard label="This month" loading={loading} value={formatMoney(summary.income)} />
-          <MetricCard label="Expenses" loading={loading} value={formatMoney(summary.expenses)} tone="coral" />
-          <MetricCard label="Savings" loading={loading} value={formatMoney(summary.savingsBalance)} />
-        </View>
-
         <Card>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Budget usage</Text>
-              <Muted>{transactions.length === 0 ? 'Add transactions to build your profile.' : `${transactions.length} local transactions tracked`}</Muted>
-            </View>
-            <Text style={styles.percentText}>{summary.budgetLimit > 0 ? `${Math.round(budgetRatio * 100)}%` : '0%'}</Text>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <Muted>Manage how Fime works on this device.</Muted>
+          <View style={styles.actionGroup}>
+            <ActionRow
+              icon={{ ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' }}
+              label="Edit profile"
+              onPress={openEditor}
+            />
+            <ActionRow
+              icon={{ ios: 'bell.badge', android: 'notifications', web: 'notifications' }}
+              label="Notifications"
+              onPress={() => Alert.alert('Notifications', 'Budget and bill reminders will be available in settings soon.')}
+            />
+            <ActionRow
+              icon={{ ios: 'globe', android: 'language', web: 'language' }}
+              label="Currency and region"
+              onPress={() => Alert.alert('Currency and region', 'Fime is currently set up for Tanzanian shillings and local date formats.')}
+            />
+            <ActionRow
+              icon={{ ios: 'lock', android: 'security', web: 'security' }}
+              label="App lock"
+              onPress={() => Alert.alert('App lock', 'Use your phone lock to protect Fime on this device.')}
+            />
           </View>
-          <ProgressBar value={budgetRatio} color={budgetRatio > 0.85 ? palette.coral : palette.emerald} />
-          <Text style={styles.progressCaption}>
-            {formatMoney(summary.budgetSpent)} of {formatMoney(summary.budgetLimit)} planned
-          </Text>
         </Card>
 
         <Card>
           <Text style={styles.sectionTitle}>Account</Text>
-          <ActionRow
-            icon={{ ios: 'square.and.arrow.up', android: 'file_upload', web: 'file_upload' }}
-            label="Export data"
-            onPress={() => router.push('/insights/export')}
-          />
-          <ActionRow
-            icon={{ ios: 'lock.shield', android: 'lock', web: 'lock' }}
-            label="Local device profile"
-            onPress={() => Alert.alert('Privacy', 'Your Fime profile and finance data stay on this device.')}
-          />
-          <ActionRow
-            destructive
-            icon={{ ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' }}
-            label="Log out"
-            onPress={confirmLogout}
-          />
+          <Muted>Keep your data portable and private.</Muted>
+          <View style={styles.actionGroup}>
+            <ActionRow
+              icon={{ ios: 'square.and.arrow.up', android: 'file_upload', web: 'file_upload' }}
+              label="Export data"
+              onPress={() => router.push('/insights/export')}
+            />
+            <ActionRow
+              icon={{ ios: 'lock.shield', android: 'lock', web: 'lock' }}
+              label="Privacy"
+              onPress={() => Alert.alert('Privacy', 'Your Fime profile and finance data stay on this device.')}
+            />
+            <ActionRow
+              icon={{ ios: 'questionmark.circle', android: 'help_outline', web: 'help_outline' }}
+              label="Help and feedback"
+              onPress={() => Alert.alert('Help and feedback', 'Share feedback from your usual support channel while in-app support is being prepared.')}
+            />
+            <ActionRow
+              destructive
+              icon={{ ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' }}
+              label="Log out"
+              onPress={confirmLogout}
+            />
+          </View>
         </Card>
       </ScrollView>
       <BottomSheet visible={editing} onClose={cancelEditing} contentStyle={styles.profileSheet}>
@@ -229,15 +239,6 @@ export default function ProfileScreen() {
         </View>
       </BottomSheet>
     </Screen>
-  );
-}
-
-function MetricCard({ label, loading, tone, value }: { label: string; loading: boolean; tone?: 'coral'; value: string }) {
-  return (
-    <Card tone={tone === 'coral' ? 'default' : 'soft'}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={[styles.metricValue, tone === 'coral' && styles.coralText]}>{loading ? '...' : value}</Text>
-    </Card>
   );
 }
 
@@ -485,39 +486,7 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.62,
   },
-  summaryGrid: {
-    gap: spacing.md,
-  },
-  metricLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  metricValue: {
-    color: palette.ink,
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: spacing.xs,
-  },
-  coralText: {
-    color: palette.coral,
-  },
-  cardHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  percentText: {
-    color: palette.emerald,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  progressCaption: {
-    color: palette.muted,
-    fontSize: 13,
-    fontWeight: '700',
+  actionGroup: {
     marginTop: spacing.sm,
   },
   actionRow: {

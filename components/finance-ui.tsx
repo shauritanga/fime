@@ -32,9 +32,12 @@ export function Muted({ children }: PropsWithChildren) {
 }
 
 export function ProgressBar({ value, color = palette.emerald }: { value: number; color?: string }) {
+  const clampedValue = Math.max(0, Math.min(value, 1));
+  const fillWidth = clampedValue === 0 ? 0 : Math.max(0.04, clampedValue) * 100;
+
   return (
     <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${Math.max(0.04, Math.min(value, 1)) * 100}%`, backgroundColor: color }]} />
+      <View style={[styles.progressFill, { width: `${fillWidth}%`, backgroundColor: color }]} />
     </View>
   );
 }

@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { migrateDatabase } from '@/lib/finance/database';
+import { OnboardingProvider } from '@/lib/onboarding/OnboardingContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -51,14 +52,17 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <SQLiteProvider databaseName="fime.db" onInit={migrateDatabase}>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          </Stack>
-        </SQLiteProvider>
+        <OnboardingProvider>
+          <SQLiteProvider databaseName="fime.db" onInit={migrateDatabase}>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            </Stack>
+          </SQLiteProvider>
+        </OnboardingProvider>
       </AuthProvider>
     </ThemeProvider>
   );
