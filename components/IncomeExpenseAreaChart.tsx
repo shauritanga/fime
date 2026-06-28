@@ -115,17 +115,23 @@ function linePath(points: Array<{ x: number; y: number }>) {
     const previous = points[index - 1];
     const next = points[index + 1] ?? point;
     const beforePrevious = points[index - 2] ?? previous;
+    const minY = Math.min(previous.y, point.y);
+    const maxY = Math.max(previous.y, point.y);
     const controlOne = {
       x: previous.x + (point.x - beforePrevious.x) / 6,
-      y: previous.y + (point.y - beforePrevious.y) / 6,
+      y: clamp(previous.y + (point.y - beforePrevious.y) / 6, minY, maxY),
     };
     const controlTwo = {
       x: point.x - (next.x - previous.x) / 6,
-      y: point.y - (next.y - previous.y) / 6,
+      y: clamp(point.y - (next.y - previous.y) / 6, minY, maxY),
     };
 
     return `${path} C ${controlOne.x} ${controlOne.y}, ${controlTwo.x} ${controlTwo.y}, ${point.x} ${point.y}`;
   }, '');
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function areaPath(points: Array<{ x: number; y: number }>, bottom: number) {
