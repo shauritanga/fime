@@ -1,8 +1,10 @@
+import Constants, { AppOwnership } from 'expo-constants';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -49,6 +51,56 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    let mounted = true;
+    let subscription: { remove: () => void } | null = null;
+
+    async function setupNotificationRouting() {
+      if (Platform.OS === 'web' || Constants.appOwnership === AppOwnership.Expo) {
+        return;
+      }
+
+      let Notifications: typeof import('expo-notifications') | null = null;
+      try {
+        Notifications = require('expo-notifications');
+      } catch {
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!Notifications) {
+        return;
+      }
+
+      const goToAdd = () => {
+        if (pathname !== '/add') {
+          router.replace('/add');
+        }
+      };
+
+      subscription = Notifications.addNotificationResponseReceivedListener(() => {
+        goToAdd();
+      });
+
+      const lastResponse = await Notifications.getLastNotificationResponseAsync();
+      if (lastResponse && mounted) {
+        goToAdd();
+      }
+    }
+
+    setupNotificationRouting();
+
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [pathname, router]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

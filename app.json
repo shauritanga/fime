@@ -40,6 +40,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ec695d3e-85cc-4ed6-8d38-1d0bafd48062"
+      }
+    },
+    "owner": "shauritanga"
   }
 }

@@ -31,12 +31,12 @@ export function ExpenseBarChart({ transactions }: { transactions: Transaction[] 
       ) : (
         <View style={styles.chart}>
           {bars.map((bar) => {
-            const height = max > 0 ? Math.max(10, (bar.total / max) * 112) : 10;
+            const height = max > 0 ? (bar.total / max) * 112 : 0;
 
             return (
               <View key={bar.label} style={styles.barItem}>
                 <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { height }]} />
+                  {bar.total > 0 ? <View style={[styles.barFill, { height }]} /> : null}
                 </View>
                 <Text style={styles.barLabel}>{bar.label}</Text>
               </View>

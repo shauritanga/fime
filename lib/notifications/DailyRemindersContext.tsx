@@ -1,4 +1,4 @@
-import * as Notifications from 'expo-notifications';
+import Constants, { AppOwnership } from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
@@ -29,6 +29,7 @@ const reminderRequests = [
 ] as const;
 
 type PermissionStatus = 'denied' | 'granted' | 'undetermined' | 'unsupported';
+type NotificationsModule = typeof import('expo-notifications');
 
 type DailyRemindersContextValue = {
   disableReminders: () => Promise<void>;
@@ -41,14 +42,8 @@ type DailyRemindersContextValue = {
 
 const DailyRemindersContext = createContext<DailyRemindersContextValue | null>(null);
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let notificationsModulePromise: Promise<NotificationsModule | null> | null = null;
+let notificationHandlerConfigured = false;
 
 export function DailyRemindersProvider({ children }: PropsWithChildren) {
   const [enabled, setEnabled] = useState(false);
@@ -56,7 +51,8 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('undetermined');
 
   const refreshPermissionStatus = useCallback(async () => {
-    if (Platform.OS === 'web') {
+    const Notifications = await getNotificationsModule();
+    if (!Notifications) {
       setPermissionStatus('unsupported');
       return 'unsupported';
     }
@@ -70,7 +66,8 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
   const disableReminders = useCallback(async () => {
     setLoading(true);
     try {
-      await cancelStoredReminders();
+      const Notifications = await getNotificationsModule();
+      await cancelStoredReminders(Notifications);
       await writeStorage(REMINDERS_ENABLED_KEY, 'false');
       setEnabled(false);
       await refreshPermissionStatus();
@@ -80,9 +77,10 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
   }, [refreshPermissionStatus]);
 
   const enableReminders = useCallback(async () => {
-    if (Platform.OS === 'web') {
+    const Notifications = await getNotificationsModule();
+    if (!Notifications) {
       setPermissionStatus('unsupported');
-      throw new Error('Daily reminders are not supported on web.');
+      throw new Error('Daily reminders require a development build or production build.');
     }
 
     setLoading(true);
@@ -100,7 +98,7 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
       }
 
       setPermissionStatus('granted');
-      const scheduledIds = await scheduleDailyReminders();
+      const scheduledIds = await scheduleDailyReminders(Notifications);
       await writeStorage(REMINDERS_IDS_KEY, JSON.stringify(scheduledIds));
       await writeStorage(REMINDERS_ENABLED_KEY, 'true');
       setEnabled(true);
@@ -118,17 +116,24 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
           readStorage(REMINDERS_ENABLED_KEY),
           refreshPermissionStatus(),
         ]);
-        const shouldBeEnabled = storedEnabled === 'true';
 
-        if (shouldBeEnabled && status === 'granted') {
-          const scheduledIds = await scheduleDailyReminders();
+        if (storedEnabled === null && status !== 'unsupported') {
+          try {
+            await enableReminders();
+          } catch {
+            // Permission was denied or unavailable. Keep reminders off.
+          }
+          return;
+        } else if (storedEnabled === 'true' && status === 'granted') {
+          const Notifications = await getNotificationsModule();
+          const scheduledIds = Notifications ? await scheduleDailyReminders(Notifications) : [];
           await writeStorage(REMINDERS_IDS_KEY, JSON.stringify(scheduledIds));
-        } else if (shouldBeEnabled && status !== 'granted') {
+        } else if (storedEnabled === 'true' && status !== 'granted') {
           await writeStorage(REMINDERS_ENABLED_KEY, 'false');
         }
 
         if (mounted) {
-          setEnabled(shouldBeEnabled && status === 'granted');
+          setEnabled(storedEnabled === null ? status === 'granted' : storedEnabled === 'true' && status === 'granted');
         }
       } finally {
         if (mounted) {
@@ -142,7 +147,7 @@ export function DailyRemindersProvider({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, [refreshPermissionStatus]);
+  }, [enableReminders, refreshPermissionStatus]);
 
   const value = useMemo(
     () => ({
@@ -167,9 +172,37 @@ export function useDailyReminders() {
   return value;
 }
 
-async function scheduleDailyReminders() {
-  await cancelStoredReminders();
-  await ensureNotificationChannel();
+async function getNotificationsModule() {
+  if (Platform.OS === 'web' || Constants.appOwnership === AppOwnership.Expo) {
+    return null;
+  }
+
+  notificationsModulePromise ??= import('expo-notifications')
+    .then((Notifications) => {
+      if (!notificationHandlerConfigured) {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+        notificationHandlerConfigured = true;
+      }
+      return Notifications;
+    })
+    .catch((error) => {
+      console.warn('Unable to load notifications module', error);
+      return null;
+    });
+
+  return notificationsModulePromise;
+}
+
+async function scheduleDailyReminders(Notifications: NotificationsModule) {
+  await cancelStoredReminders(Notifications);
+  await ensureNotificationChannel(Notifications);
 
   const scheduledIds: string[] = [];
   for (const request of reminderRequests) {
@@ -192,7 +225,7 @@ async function scheduleDailyReminders() {
   return scheduledIds;
 }
 
-async function ensureNotificationChannel() {
+async function ensureNotificationChannel(Notifications: NotificationsModule) {
   if (Platform.OS !== 'android') {
     return;
   }
@@ -204,10 +237,12 @@ async function ensureNotificationChannel() {
   });
 }
 
-async function cancelStoredReminders() {
+async function cancelStoredReminders(Notifications?: NotificationsModule | null) {
   const storedIds = await readStorage(REMINDERS_IDS_KEY);
   const ids = storedIds ? parseNotificationIds(storedIds) : [];
-  await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
+  if (Notifications) {
+    await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
+  }
   await deleteStorage(REMINDERS_IDS_KEY);
 }
 
