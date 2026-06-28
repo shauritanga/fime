@@ -1,16 +1,11 @@
+import { ChartRangeMenu } from '@/components/ChartRangeMenu';
 import { Card, Muted } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { buildExpenseChartData } from '@/lib/finance/chart';
 import { formatMoney } from '@/lib/finance/format';
 import type { ExpenseChartRange, Transaction } from '@/lib/finance/types';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-const ranges: Array<{ label: string; value: ExpenseChartRange }> = [
-  { label: 'Weekly', value: 'weekly' },
-  { label: 'Monthly', value: 'monthly' },
-  { label: 'Yearly', value: 'yearly' },
-];
+import { StyleSheet, Text, View } from 'react-native';
 
 export function ExpenseBarChart({ transactions }: { transactions: Transaction[] }) {
   const [range, setRange] = useState<ExpenseChartRange>('weekly');
@@ -21,22 +16,11 @@ export function ExpenseBarChart({ transactions }: { transactions: Transaction[] 
   return (
     <Card>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Expense trend</Text>
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} style={styles.title}>Expense trend</Text>
           <Muted>{formatMoney(total)} spent</Muted>
         </View>
-        <View style={styles.segment}>
-          {ranges.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => setRange(item.value)}
-              style={[styles.segmentItem, range === item.value && styles.segmentActive]}>
-              <Text style={[styles.segmentText, range === item.value && styles.segmentTextActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <ChartRangeMenu value={range} onChange={setRange} />
       </View>
 
       {total === 0 ? (
@@ -66,35 +50,20 @@ export function ExpenseBarChart({ transactions }: { transactions: Transaction[] 
 
 const styles = StyleSheet.create({
   header: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
     gap: spacing.md,
+    justifyContent: 'space-between',
+    position: 'relative',
+    zIndex: 2,
   },
   title: {
     color: palette.ink,
     fontSize: 19,
     fontWeight: '800',
   },
-  segment: {
-    backgroundColor: palette.surfaceMuted,
-    borderRadius: radii.sm,
-    flexDirection: 'row',
-    padding: 4,
-  },
-  segmentItem: {
-    alignItems: 'center',
-    borderRadius: radii.sm,
+  headerCopy: {
     flex: 1,
-    paddingVertical: spacing.sm,
-  },
-  segmentActive: {
-    backgroundColor: palette.emerald,
-  },
-  segmentText: {
-    color: palette.muted,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  segmentTextActive: {
-    color: palette.white,
   },
   empty: {
     backgroundColor: palette.background,

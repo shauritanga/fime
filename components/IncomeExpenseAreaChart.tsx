@@ -1,17 +1,12 @@
+import { ChartRangeMenu } from '@/components/ChartRangeMenu';
 import { Card, Muted } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { buildIncomeExpenseTrendData } from '@/lib/finance/chart';
 import { formatMoney } from '@/lib/finance/format';
 import type { ExpenseChartRange, Transaction } from '@/lib/finance/types';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-
-const ranges: Array<{ label: string; value: ExpenseChartRange }> = [
-  { label: 'Weekly', value: 'weekly' },
-  { label: 'Monthly', value: 'monthly' },
-  { label: 'Yearly', value: 'yearly' },
-];
 
 export function IncomeExpenseAreaChart({ transactions }: { transactions: Transaction[] }) {
   const [range, setRange] = useState<ExpenseChartRange>('weekly');
@@ -25,32 +20,21 @@ export function IncomeExpenseAreaChart({ transactions }: { transactions: Transac
   return (
     <Card>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Income vs expenses</Text>
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} style={styles.title}>Income vs expenses</Text>
           <Muted>{formatMoney(incomeTotal - expenseTotal)} net movement</Muted>
         </View>
-        <View style={styles.segment}>
-          {ranges.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => setRange(item.value)}
-              style={[styles.segmentItem, range === item.value && styles.segmentActive]}>
-              <Text style={[styles.segmentText, range === item.value && styles.segmentTextActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <ChartRangeMenu value={range} onChange={setRange} />
       </View>
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: palette.emerald }]} />
-          <Text style={styles.legendText}>Income {formatMoney(incomeTotal)}</Text>
+          <Text style={styles.legendText}>Income</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: palette.coral }]} />
-          <Text style={styles.legendText}>Expenses {formatMoney(expenseTotal)}</Text>
+          <Text style={styles.legendText}>Expenses</Text>
         </View>
       </View>
 
@@ -115,7 +99,33 @@ function buildAreaPaths(points: ReturnType<typeof buildIncomeExpenseTrendData>, 
 }
 
 function linePath(points: Array<{ x: number; y: number }>) {
-  return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  if (points.length === 0) {
+    return '';
+  }
+
+  if (points.length === 1) {
+    return `M ${points[0].x} ${points[0].y}`;
+  }
+
+  return points.reduce((path, point, index) => {
+    if (index === 0) {
+      return `M ${point.x} ${point.y}`;
+    }
+
+    const previous = points[index - 1];
+    const next = points[index + 1] ?? point;
+    const beforePrevious = points[index - 2] ?? previous;
+    const controlOne = {
+      x: previous.x + (point.x - beforePrevious.x) / 6,
+      y: previous.y + (point.y - beforePrevious.y) / 6,
+    };
+    const controlTwo = {
+      x: point.x - (next.x - previous.x) / 6,
+      y: point.y - (next.y - previous.y) / 6,
+    };
+
+    return `${path} C ${controlOne.x} ${controlOne.y}, ${controlTwo.x} ${controlTwo.y}, ${point.x} ${point.y}`;
+  }, '');
 }
 
 function areaPath(points: Array<{ x: number; y: number }>, bottom: number) {
@@ -131,35 +141,20 @@ function areaPath(points: Array<{ x: number; y: number }>, bottom: number) {
 
 const styles = StyleSheet.create({
   header: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
     gap: spacing.md,
+    justifyContent: 'space-between',
+    position: 'relative',
+    zIndex: 2,
   },
   title: {
     color: palette.ink,
     fontSize: 19,
     fontWeight: '800',
   },
-  segment: {
-    backgroundColor: palette.surfaceMuted,
-    borderRadius: radii.sm,
-    flexDirection: 'row',
-    padding: 4,
-  },
-  segmentItem: {
-    alignItems: 'center',
-    borderRadius: radii.sm,
+  headerCopy: {
     flex: 1,
-    paddingVertical: spacing.sm,
-  },
-  segmentActive: {
-    backgroundColor: palette.emerald,
-  },
-  segmentText: {
-    color: palette.muted,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  segmentTextActive: {
-    color: palette.white,
   },
   legend: {
     flexDirection: 'row',
