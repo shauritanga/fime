@@ -5,6 +5,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -39,7 +40,10 @@ export default function LoginScreen() {
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: undefined, web: undefined })} style={styles.flex}>
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
             <View style={styles.brandMark}>
               <Image source={require('../../assets/images/fime_logo.png')} style={styles.brandMarkImage} />
@@ -86,7 +90,7 @@ export default function LoginScreen() {
               <Text style={styles.secondaryActionText}>Create a new account</Text>
             </Pressable>
           </Card>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -97,7 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.md,
   },

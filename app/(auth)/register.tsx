@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Card, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
@@ -33,7 +33,10 @@ export default function RegisterScreen() {
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: undefined, web: undefined })} style={styles.flex}>
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
             <View style={styles.brandMark}>
               <Image source={require('../../assets/images/fime_logo.png')} style={styles.brandMarkImage} />
@@ -102,7 +105,7 @@ export default function RegisterScreen() {
               <Text style={styles.secondaryActionText}>Already have an account? Log in</Text>
             </Pressable>
           </Card>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -113,7 +116,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.md,
   },
