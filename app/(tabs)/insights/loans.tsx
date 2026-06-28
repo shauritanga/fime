@@ -15,9 +15,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 export default function LoansScreen() {
   const { addLoan, loanActivities, loans, repayLoan, returnLoan } = useFinance();
@@ -280,14 +280,14 @@ export default function LoansScreen() {
           ))}
         </View>
 
-        <TextInput
+        <BottomSheetTextInput
           placeholder="Counterparty"
           placeholderTextColor={palette.muted}
           style={insightFormStyles.input}
           value={counterparty}
           onChangeText={setCounterparty}
         />
-        <TextInput
+        <BottomSheetTextInput
           placeholder={loanType === 'money' ? 'Loan title' : 'Item name'}
           placeholderTextColor={palette.muted}
           style={insightFormStyles.input}
@@ -295,7 +295,7 @@ export default function LoansScreen() {
           onChangeText={setTitle}
         />
         <View style={insightFormStyles.twoColumn}>
-          <TextInput
+          <BottomSheetTextInput
             keyboardType="numeric"
             placeholder={loanType === 'money' ? 'Amount borrowed' : 'Estimated value'}
             placeholderTextColor={palette.muted}
@@ -303,7 +303,7 @@ export default function LoansScreen() {
             value={amount}
             onChangeText={setAmount}
           />
-          <TextInput
+          <BottomSheetTextInput
             placeholder="Due date"
             placeholderTextColor={palette.muted}
             style={insightFormStyles.inputFlex}
@@ -311,7 +311,7 @@ export default function LoansScreen() {
             onChangeText={setDueDate}
           />
         </View>
-        <TextInput
+        <BottomSheetTextInput
           multiline
           placeholder="Notes"
           placeholderTextColor={palette.muted}
@@ -340,7 +340,7 @@ export default function LoansScreen() {
         </View>
 
         {selectedLoan?.type === 'money' && (
-          <TextInput
+          <BottomSheetTextInput
             keyboardType="numeric"
             placeholder={`Remaining ${formatMoney(selectedLoan.remainingAmount)}`}
             placeholderTextColor={palette.muted}
@@ -350,14 +350,14 @@ export default function LoansScreen() {
           />
         )}
         <View style={insightFormStyles.twoColumn}>
-          <TextInput
+          <BottomSheetTextInput
             placeholder="Date"
             placeholderTextColor={palette.muted}
             style={insightFormStyles.inputFlex}
             value={repaymentDate}
             onChangeText={setRepaymentDate}
           />
-          <TextInput
+          <BottomSheetTextInput
             placeholder="Note"
             placeholderTextColor={palette.muted}
             style={insightFormStyles.inputFlex}

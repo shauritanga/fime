@@ -9,7 +9,8 @@ import type { Subscription } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 export default function SubscriptionsScreen() {
   const { addSubscription, categories, expenseCategories, saveSubscription: updateSubscription, subscriptions } = useFinance();
@@ -133,10 +134,10 @@ export default function SubscriptionsScreen() {
             <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={22} />
           </Pressable>
         </View>
-        <TextInput placeholder="Subscription name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={name} onChangeText={setName} />
+        <BottomSheetTextInput placeholder="Subscription name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={name} onChangeText={setName} />
         <View style={insightFormStyles.twoColumn}>
-          <TextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
-          <TextInput placeholder="Next due" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={due} onChangeText={setDue} />
+          <BottomSheetTextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
+          <BottomSheetTextInput placeholder="Next due" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={due} onChangeText={setDue} />
         </View>
         <CategoryChips categories={expenseCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
         <ActionButton label={editingSubscription ? 'Save changes' : 'Add subscription'} onPress={saveSubscription} />

@@ -5,7 +5,8 @@ import { currentPeriod, formatMoney } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 export default function MoreBudgetsScreen() {
   const { budgets, expenseCategories, saveBudget } = useFinance();
@@ -103,7 +104,7 @@ export default function MoreBudgetsScreen() {
         </View>
 
         <Text style={styles.inputLabel}>Monthly amount</Text>
-        <TextInput
+        <BottomSheetTextInput
           keyboardType="numeric"
           onChangeText={setLimitAmount}
           placeholder="Monthly amount"

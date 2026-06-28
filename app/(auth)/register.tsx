@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { Card, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
@@ -32,12 +33,12 @@ export default function RegisterScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: undefined, web: undefined })} style={styles.flex}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.hero}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={24}>
+        <View style={styles.hero}>
             <View style={styles.brandMark}>
               <Image source={require('../../assets/images/fime_logo.png')} style={styles.brandMarkImage} />
             </View>
@@ -105,8 +106,7 @@ export default function RegisterScreen() {
               <Text style={styles.secondaryActionText}>Already have an account? Log in</Text>
             </Pressable>
           </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }

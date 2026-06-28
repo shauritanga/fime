@@ -6,7 +6,8 @@ import { useFinance } from '@/lib/finance/useFinance';
 import type { TransactionType } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 export default function AddScreen() {
   const { addTransaction, expenseCategories, incomeCategories } = useFinance();
@@ -60,7 +61,7 @@ export default function AddScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
         <View>
           <Eyebrow>Quick add</Eyebrow>
           <Title>New transaction</Title>
@@ -133,7 +134,7 @@ export default function AddScreen() {
             <Text style={styles.submitText}>Save transaction</Text>
           </Pressable>
         </Card>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }

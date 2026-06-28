@@ -6,7 +6,8 @@ import { formatMoney, todayISO } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Svg, { Circle } from 'react-native-svg';
 
 export default function GoalsScreen() {
@@ -74,12 +75,12 @@ export default function GoalsScreen() {
             <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={22} />
           </Pressable>
         </View>
-        <TextInput placeholder="Goal name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalName} onChangeText={setGoalName} />
+        <BottomSheetTextInput placeholder="Goal name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalName} onChangeText={setGoalName} />
         <View style={insightFormStyles.twoColumn}>
-          <TextInput keyboardType="numeric" placeholder="Target" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalTarget} onChangeText={setGoalTarget} />
-          <TextInput keyboardType="numeric" placeholder="Saved" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalSaved} onChangeText={setGoalSaved} />
+          <BottomSheetTextInput keyboardType="numeric" placeholder="Target" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalTarget} onChangeText={setGoalTarget} />
+          <BottomSheetTextInput keyboardType="numeric" placeholder="Saved" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalSaved} onChangeText={setGoalSaved} />
         </View>
-        <TextInput placeholder="Due date YYYY-MM-DD" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalDue} onChangeText={setGoalDue} />
+        <BottomSheetTextInput placeholder="Due date YYYY-MM-DD" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalDue} onChangeText={setGoalDue} />
         <ActionButton label="Add goal" onPress={saveGoal} />
       </BottomSheet>
     </Screen>

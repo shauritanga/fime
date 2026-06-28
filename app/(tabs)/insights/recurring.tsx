@@ -9,7 +9,8 @@ import type { RecurringFrequency, TransactionType } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 export default function RecurringScreen() {
   const {
@@ -156,10 +157,10 @@ export default function RecurringScreen() {
           ))}
         </View>
         <View style={insightFormStyles.twoColumn}>
-          <TextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
-          <TextInput placeholder="Next date" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={nextDate} onChangeText={setNextDate} />
+          <BottomSheetTextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
+          <BottomSheetTextInput placeholder="Next date" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={nextDate} onChangeText={setNextDate} />
         </View>
-        <TextInput placeholder="Note" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={note} onChangeText={setNote} />
+        <BottomSheetTextInput placeholder="Note" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={note} onChangeText={setNote} />
         <View style={insightFormStyles.segment}>
           {(['monthly', 'weekly'] as RecurringFrequency[]).map((item) => (
             <Pressable

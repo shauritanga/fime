@@ -3,7 +3,8 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import type { SymbolViewProps } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Card, Muted, Screen } from '@/components/finance-ui';
@@ -233,7 +234,7 @@ export default function ProfileScreen() {
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Name</Text>
-          <TextInput
+          <BottomSheetTextInput
             placeholder="Your full name"
             placeholderTextColor={palette.muted}
             style={styles.input}
@@ -243,7 +244,7 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Phone number</Text>
-          <TextInput
+          <BottomSheetTextInput
             keyboardType="phone-pad"
             placeholder="e.g. +255 700 000 000"
             placeholderTextColor={palette.muted}

@@ -17,6 +17,7 @@
         "foregroundImage": "./assets/images/android-icon-fime-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.shauritanga.fime"
     },
     "web": {
