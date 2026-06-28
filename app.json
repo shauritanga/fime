@@ -13,8 +13,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F7F2EA",
-        "foregroundImage": "./assets/images/android-icon-fime-foreground.png"
+        "backgroundColor": "#090D16",
+        "foregroundImage": "./assets/images/fime_logo.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.shauritanga.fime"
