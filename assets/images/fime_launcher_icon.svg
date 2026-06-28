@@ -18,7 +18,7 @@
   </defs>
 
   <rect width="512" height="512" fill="url(#obsidianBg)" />
-  <g filter="url(#glowShadow)" transform="translate(256 256) scale(1.28) translate(-256 -256)">
+  <g filter="url(#glowShadow)" transform="translate(256 256) scale(1.02) translate(-256 -256)">
     <rect x="160" y="130" width="70" height="252" rx="35" fill="url(#mintSlice)" />
     <path d="M 250 130 h 65 c 38.6 0 70 31.4 70 70 v 0 c 0 38.6 -31.4 70 -70 70 h -65 v -140 z" fill="url(#cyanSlice)" />
     <path d="M 250 242 h 35 c 38.6 0 70 31.4 70 70 v 0 c 0 38.6 -31.4 70 -70 70 h -35 v -140 z" fill="url(#mintSlice)" />
