@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="obsidianBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#090D16" />
+    </linearGradient>
+    <linearGradient id="mintSlice" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="cyanSlice" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE" />
+      <stop offset="100%" stop-color="#0891B2" />
+    </linearGradient>
+    <filter id="glowShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#obsidianBg)" />
+  <g filter="url(#glowShadow)" transform="translate(256 256) scale(1.28) translate(-256 -256)">
+    <rect x="160" y="130" width="70" height="252" rx="35" fill="url(#mintSlice)" />
+    <path d="M 250 130 h 65 c 38.6 0 70 31.4 70 70 v 0 c 0 38.6 -31.4 70 -70 70 h -65 v -140 z" fill="url(#cyanSlice)" />
+    <path d="M 250 242 h 35 c 38.6 0 70 31.4 70 70 v 0 c 0 38.6 -31.4 70 -70 70 h -35 v -140 z" fill="url(#mintSlice)" />
+  </g>
+</svg>
