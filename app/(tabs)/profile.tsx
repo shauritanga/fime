@@ -3,16 +3,26 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import type { SymbolViewProps } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Card, Muted, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useDailyReminders } from '@/lib/notifications/DailyRemindersContext';
 
 export default function ProfileScreen() {
   const { profile, signOut, updateProfile } = useAuth();
+  const {
+    disableReminders,
+    enableReminders,
+    enabled: remindersEnabled,
+    loading: remindersLoading,
+    permissionStatus,
+    reminderTimes,
+  } = useDailyReminders();
   const [editing, setEditing] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [name, setName] = useState(profile?.name ?? '');
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber ?? '');
   const [imageUri, setImageUri] = useState(profile?.imageUri);
@@ -47,6 +57,23 @@ export default function ProfileScreen() {
     setImageUri(profile?.imageUri);
     setError('');
     setEditing(true);
+  }
+
+  async function toggleReminders(nextValue: boolean) {
+    try {
+      if (nextValue) {
+        await enableReminders();
+      } else {
+        await disableReminders();
+      }
+    } catch (nextError) {
+      Alert.alert(
+        'Notifications unavailable',
+        nextError instanceof Error
+          ? nextError.message
+          : 'Unable to update notification reminders right now.'
+      );
+    }
   }
 
   async function chooseProfileImage() {
@@ -130,7 +157,7 @@ export default function ProfileScreen() {
             <ActionRow
               icon={{ ios: 'bell.badge', android: 'notifications', web: 'notifications' }}
               label="Notifications"
-              onPress={() => Alert.alert('Notifications', 'Budget and bill reminders will be available in settings soon.')}
+              onPress={() => setNotificationsOpen(true)}
             />
             <ActionRow
               icon={{ ios: 'globe', android: 'language', web: 'language' }}
@@ -238,6 +265,60 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </BottomSheet>
+      <BottomSheet visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} contentStyle={styles.profileSheet}>
+        <View style={styles.sheetHeader}>
+          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Pressable onPress={() => setNotificationsOpen(false)} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
+            <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={20} />
+          </Pressable>
+        </View>
+
+        <View style={styles.reminderPanel}>
+          <View style={styles.reminderHeader}>
+            <View style={styles.reminderIcon}>
+              <SymbolView name={{ ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' }} tintColor={palette.emerald} size={22} />
+            </View>
+            <View style={styles.reminderCopy}>
+              <Text style={styles.reminderTitle}>Daily wrap-up reminders</Text>
+              <Muted>Record all income and expenses before the day ends.</Muted>
+            </View>
+          </View>
+
+          <View style={styles.reminderTimes}>
+            {reminderTimes.map((time) => (
+              <View key={time} style={styles.reminderTimeChip}>
+                <Text style={styles.reminderTimeText}>{time}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.switchRow}>
+            <View>
+              <Text style={styles.switchTitle}>{remindersEnabled ? 'Reminders on' : 'Reminders off'}</Text>
+              <Text style={styles.switchMeta}>{getReminderStatusText(permissionStatus, remindersEnabled)}</Text>
+            </View>
+            <Switch
+              disabled={remindersLoading || permissionStatus === 'unsupported'}
+              ios_backgroundColor={palette.surfaceMuted}
+              onValueChange={toggleReminders}
+              thumbColor={palette.white}
+              trackColor={{ false: palette.surfaceMuted, true: palette.emerald }}
+              value={remindersEnabled}
+            />
+          </View>
+
+          {permissionStatus === 'denied' ? (
+            <Text style={styles.permissionText}>
+              Notifications are blocked for Fime. Enable them in your device settings to use reminders.
+            </Text>
+          ) : null}
+          {permissionStatus === 'unsupported' ? (
+            <Text style={styles.permissionText}>
+              Daily notification reminders are not supported on web.
+            </Text>
+          ) : null}
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }
@@ -266,6 +347,16 @@ function ActionRow({
 
 function formatMemberDate(value: string) {
   return new Intl.DateTimeFormat('en-TZ', { month: 'short', year: 'numeric' }).format(new Date(value));
+}
+
+function getReminderStatusText(permissionStatus: string, enabled: boolean) {
+  if (permissionStatus === 'unsupported') {
+    return 'Not available on this platform';
+  }
+  if (permissionStatus === 'denied') {
+    return 'Permission denied';
+  }
+  return enabled ? 'Scheduled every day' : 'Ask permission when you turn this on';
 }
 
 const styles = StyleSheet.create({
@@ -485,6 +576,80 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.62,
+  },
+  reminderPanel: {
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    gap: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  reminderHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  reminderIcon: {
+    alignItems: 'center',
+    backgroundColor: palette.emeraldSoft,
+    borderRadius: 999,
+    height: 46,
+    justifyContent: 'center',
+    width: 46,
+  },
+  reminderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  reminderTitle: {
+    color: palette.ink,
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 2,
+  },
+  reminderTimes: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  reminderTimeChip: {
+    backgroundColor: palette.emeraldSoft,
+    borderColor: '#C7E2D6',
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  reminderTimeText: {
+    color: palette.emerald,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  switchRow: {
+    alignItems: 'center',
+    borderTopColor: palette.border,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: spacing.md,
+  },
+  switchTitle: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  switchMeta: {
+    color: palette.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  permissionText: {
+    color: palette.coral,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   actionGroup: {
     marginTop: spacing.sm,

@@ -6,9 +6,13 @@ import { StyleSheet, Text, View } from 'react-native';
 
 export function TransactionCard({
   category,
+  grouped = false,
+  showDivider = false,
   transaction,
 }: {
   category?: Category;
+  grouped?: boolean;
+  showDivider?: boolean;
   transaction: Transaction;
 }) {
   const icon = getCategoryIcon(transaction.categoryId);
@@ -16,7 +20,7 @@ export function TransactionCard({
     transaction.note.trim() || getTransactionFallbackTitle(transaction.categoryId, transaction.type);
 
   return (
-    <View style={styles.transactionCard}>
+    <View style={[styles.transactionCard, grouped && styles.groupedCard, showDivider && styles.dividedCard]}>
       <View style={styles.transactionIcon}>
         <SymbolView name={icon} tintColor={palette.emerald} size={25} />
       </View>
@@ -78,17 +82,26 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: spacing.md,
-    minHeight: 96,
-    padding: spacing.md,
+    gap: spacing.sm,
+    minHeight: 78,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  groupedCard: {
+    borderRadius: 0,
+    borderWidth: 0,
+  },
+  dividedCard: {
+    borderTopColor: palette.border,
+    borderTopWidth: 1,
   },
   transactionIcon: {
     alignItems: 'center',
     backgroundColor: palette.emeraldSoft,
     borderRadius: 999,
-    height: 54,
+    height: 46,
     justifyContent: 'center',
-    width: 54,
+    width: 46,
   },
   transactionMiddle: {
     flex: 1,
@@ -117,7 +130,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   categoryMeta: {
     color: palette.muted,

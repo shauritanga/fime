@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { migrateDatabase } from '@/lib/finance/database';
+import { DailyRemindersProvider } from '@/lib/notifications/DailyRemindersContext';
 import { OnboardingProvider } from '@/lib/onboarding/OnboardingContext';
 
 export {
@@ -53,15 +54,17 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <OnboardingProvider>
-          <SQLiteProvider databaseName="fime.db" onInit={migrateDatabase}>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            </Stack>
-          </SQLiteProvider>
+          <DailyRemindersProvider>
+            <SQLiteProvider databaseName="fime.db" onInit={migrateDatabase}>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              </Stack>
+            </SQLiteProvider>
+          </DailyRemindersProvider>
         </OnboardingProvider>
       </AuthProvider>
     </ThemeProvider>

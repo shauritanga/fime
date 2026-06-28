@@ -34,6 +34,7 @@
           "backgroundColor": "#F7F2EA"
         }
       ],
+      "expo-notifications",
       "expo-sqlite",
       "expo-secure-store"
     ],
