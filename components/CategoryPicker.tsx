@@ -1,9 +1,10 @@
-import { palette, radii, spacing } from '@/constants/theme';
+import { centeredEmoji, palette, radii, spacing } from '@/constants/theme';
 import {
   CategoryError,
+  countCategoryRecords,
   createCategory,
   deleteCategory,
-  isCustomCategory,
+  listCategories,
   updateCategory,
 } from '@/lib/finance/database';
 import type { Category, TransactionType } from '@/lib/finance/types';
@@ -18,7 +19,7 @@ const suggestedEmojis = [
   '🔧', '💇', '🎁', '⚽', '🍺', '☕', '🐶', '🏦', '💻', '🧾', '🛠️', '❤️',
 ];
 
-/** Category chips with the means to add, rename and remove the user's own categories. */
+/** Category chips with the means to add, rename and remove categories. */
 export function CategoryPicker({
   categories,
   inSheet,
@@ -44,6 +45,8 @@ export function CategoryPicker({
   const [emoji, setEmoji] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Set while deleting a category whose records need a new home.
+  const [moving, setMoving] = useState<{ records: number; targets: Category[] } | null>(null);
   const selected = categories.find((item) => item.id === selectedId);
   const Input = inSheet ? BottomSheetTextInput : TextInput;
 
@@ -52,6 +55,7 @@ export function CategoryPicker({
     setName(category?.name ?? '');
     setEmoji(category?.emoji ?? '');
     setError('');
+    setMoving(null);
   }
 
   async function run(change: () => Promise<void>) {
@@ -83,19 +87,43 @@ export function CategoryPicker({
     });
   }
 
-  function confirmDelete(id: string) {
-    Alert.alert('Delete category?', 'Any budget set for it is removed too.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          run(async () => {
-            await deleteCategory(db, id);
-            onSelect('');
-          }),
-      },
-    ]);
+  function remove(id: string, moveTo?: string) {
+    run(async () => {
+      await deleteCategory(db, id, moveTo);
+      setMoving(null);
+      onSelect(moveTo ?? '');
+    });
+  }
+
+  async function askToDelete(id: string) {
+    try {
+      const records = await countCategoryRecords(db, id);
+      if (records) {
+        // Every category of this type can take them, even ones this screen doesn't offer.
+        const targets = (await listCategories(db)).filter((item) => item.type === type && item.id !== id);
+        setError(targets.length ? '' : 'Add another category first, so these records have somewhere to go.');
+        setMoving({ records, targets });
+        return;
+      }
+      Alert.alert('Delete category?', 'Any budget set for it is removed too.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => remove(id) },
+      ]);
+    } catch (cause) {
+      console.warn('Unable to check the category', cause);
+      setError('Something went wrong. Please try again.');
+    }
+  }
+
+  function confirmMove(id: string, target: Category) {
+    Alert.alert(
+      `Move to ${target.name} and delete?`,
+      `${moving?.records} ${moving?.records === 1 ? 'record moves' : 'records move'} to ${target.name}, with this category's budget limits.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Move and delete', style: 'destructive', onPress: () => remove(id, target.id) },
+      ]
+    );
   }
 
   return (
@@ -107,7 +135,7 @@ export function CategoryPicker({
           <Pressable accessibilityRole="button" onPress={() => open()} style={styles.link}>
             <Text style={styles.linkText}>+ New category</Text>
           </Pressable>
-          {selected && isCustomCategory(selected.id) ? (
+          {selected ? (
             <Pressable accessibilityRole="button" onPress={() => open(selected)} style={styles.link}>
               <Text style={styles.linkText}>Edit {selected.name}</Text>
             </Pressable>
@@ -148,6 +176,23 @@ export function CategoryPicker({
             value={emoji}
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          {moving?.targets.length ? (
+            <>
+              <Text style={styles.label}>
+                Used by {moving.records} {moving.records === 1 ? 'record' : 'records'}. Move to:
+              </Text>
+              <CategoryChips
+                categories={moving.targets}
+                onSelect={(targetId) => {
+                  const target = moving.targets.find((item) => item.id === targetId);
+                  if (target) {
+                    confirmMove(editing.id, target);
+                  }
+                }}
+                selectedId=""
+              />
+            </>
+          ) : null}
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" disabled={busy} onPress={save} style={styles.primary}>
               <Text style={styles.primaryText}>{editing.id ? 'Save category' : 'Add category'}</Text>
@@ -156,7 +201,7 @@ export function CategoryPicker({
               <Text style={styles.linkText}>Cancel</Text>
             </Pressable>
             {editing.id ? (
-              <Pressable accessibilityRole="button" onPress={() => confirmDelete(editing.id)} style={styles.link}>
+              <Pressable accessibilityRole="button" onPress={() => askToDelete(editing.id)} style={styles.link}>
                 <Text style={styles.deleteText}>Delete</Text>
               </Pressable>
             ) : null}
@@ -230,7 +275,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   emojiText: {
+    ...centeredEmoji,
     fontSize: 22,
+    lineHeight: 28,
   },
   error: {
     color: palette.coral,

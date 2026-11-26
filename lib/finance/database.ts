@@ -40,6 +40,15 @@ export const LOAN_REPAYMENT_CATEGORY_ID = 'loan-repayment';
 /** A category problem whose message can be shown to the user. */
 export class CategoryError extends Error {}
 
+export class CategoryInUseError extends CategoryError {
+  records: number;
+
+  constructor(name: string, records: number) {
+    super(`${name} is used by ${records} ${records === 1 ? 'record' : 'records'}. Choose where to move them.`);
+    this.records = records;
+  }
+}
+
 export class BudgetRequiredError extends Error {
   categoryId: string;
   period: string;
@@ -141,19 +150,7 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.execAsync("ALTER TABLE categories ADD COLUMN emoji TEXT NOT NULL DEFAULT ''");
   }
 
-  for (const category of defaultCategories) {
-    await db.runAsync(
-      `INSERT INTO categories (id, name, type, color, emoji)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, color = excluded.color,
-         emoji = excluded.emoji`,
-      category.id,
-      category.name,
-      category.type,
-      category.color,
-      category.emoji
-    );
-  }
+  await seedCategories(db);
 
   const cleanupFlag = 'database-cleaned-v1';
   const cleanupRow = await db.getFirstAsync<MetaRow>(
@@ -170,12 +167,45 @@ export async function migrateDatabase(db: SQLiteDatabase) {
 export async function eraseAllData(db: SQLiteDatabase) {
   await db.withTransactionAsync(async () => {
     await clearUserData(db);
-    await db.runAsync("DELETE FROM categories WHERE id LIKE 'cat-%'");
+    // Put the starting categories back as they were.
+    await db.runAsync('DELETE FROM categories');
+    await db.runAsync('DELETE FROM app_meta WHERE key = ?', SEED_FLAG);
+    await seedCategories(db);
     // The one-time cleanup flag stays: without it, the next start would clear new data.
     await db.runAsync("DELETE FROM app_meta WHERE key LIKE 'assistant-consent%'");
   });
   // Rewrite the file so deleted rows don't linger inside it.
   await db.execAsync('VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');
+}
+
+const SEED_FLAG = 'categories-seeded-v1';
+
+/**
+ * Adds the starting categories once. After that they belong to the user: renamed ones keep their
+ * names and deleted ones stay deleted.
+ */
+async function seedCategories(db: SQLiteDatabase) {
+  const seeded = await db.getFirstAsync<MetaRow>('SELECT value FROM app_meta WHERE key = ?', SEED_FLAG);
+  if (seeded) {
+    return;
+  }
+  for (const category of defaultCategories) {
+    await insertDefaultCategory(db, category);
+    // Rows from versions without emojis get theirs now.
+    await db.runAsync("UPDATE categories SET emoji = ? WHERE id = ? AND emoji = ''", category.emoji, category.id);
+  }
+  await db.runAsync('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)', SEED_FLAG, 'true');
+}
+
+async function insertDefaultCategory(db: SQLiteDatabase, category: Category) {
+  await db.runAsync(
+    'INSERT OR IGNORE INTO categories (id, name, type, color, emoji) VALUES (?, ?, ?, ?, ?)',
+    category.id,
+    category.name,
+    category.type,
+    category.color,
+    category.emoji
+  );
 }
 
 export async function getSetting(db: SQLiteDatabase, key: string) {
@@ -241,30 +271,73 @@ export async function createCategory(db: SQLiteDatabase, input: CategoryInput) {
 }
 
 export async function updateCategory(db: SQLiteDatabase, id: string, input: { name: string; emoji: string }) {
-  if (!isCustomCategory(id)) {
-    throw new CategoryError('Built-in categories can\'t be changed.');
-  }
   const checked = await checkCategory(db, input, id);
   await db.runAsync('UPDATE categories SET name = ?, emoji = ? WHERE id = ?', checked.name, checked.emoji, id);
 }
 
-/** Removes an unused category along with its budgets. Records are never left without a category. */
-export async function deleteCategory(db: SQLiteDatabase, id: string) {
-  if (!isCustomCategory(id)) {
-    throw new CategoryError('Built-in categories can\'t be deleted.');
-  }
+/** How many transactions, subscriptions and recurring entries are filed under a category. */
+export async function countCategoryRecords(db: SQLiteDatabase, id: string) {
+  const row = await db.getFirstAsync<SumRow>(
+    `SELECT (SELECT COUNT(*) FROM transactions WHERE categoryId = ?)
+          + (SELECT COUNT(*) FROM subscriptions WHERE categoryId = ?)
+          + (SELECT COUNT(*) FROM recurring_transactions WHERE categoryId = ?) as total`,
+    id,
+    id,
+    id
+  );
+  return row?.total ?? 0;
+}
+
+/**
+ * Deletes a category. Records are never left without one: if any use it, `moveTo` names the
+ * category of the same type that takes them over, along with its budgets.
+ */
+export async function deleteCategory(db: SQLiteDatabase, id: string, moveTo?: string) {
   await db.withTransactionAsync(async () => {
-    const used = await db.getFirstAsync<SumRow>(
-      `SELECT (SELECT COUNT(*) FROM transactions WHERE categoryId = ?)
-            + (SELECT COUNT(*) FROM subscriptions WHERE categoryId = ?)
-            + (SELECT COUNT(*) FROM recurring_transactions WHERE categoryId = ?) as total`,
-      id,
-      id,
-      id
-    );
-    if (used?.total) {
-      throw new CategoryError('This category is in use by transactions or bills, so it was kept.');
+    const categories = await listCategories(db);
+    const category = categories.find((item) => item.id === id);
+    if (!category) {
+      throw new CategoryError('That category no longer exists.');
     }
+    const records = await countCategoryRecords(db, id);
+    if (records && !moveTo) {
+      throw new CategoryInUseError(category.name, records);
+    }
+
+    if (moveTo) {
+      const target = categories.find((item) => item.id === moveTo);
+      if (!target || target.id === id || target.type !== category.type) {
+        throw new CategoryError(`Choose another ${category.type} category to move them to.`);
+      }
+      for (const table of ['transactions', 'subscriptions', 'recurring_transactions']) {
+        await db.runAsync(`UPDATE ${table} SET categoryId = ? WHERE categoryId = ?`, target.id, id);
+      }
+      // A month with limits for both keeps the same total; otherwise the limit moves across.
+      const budgets = await db.getAllAsync<Budget>('SELECT * FROM budgets WHERE categoryId = ?', id);
+      for (const budget of budgets) {
+        const existing = await db.getFirstAsync<Budget>(
+          'SELECT * FROM budgets WHERE categoryId = ? AND period = ?',
+          target.id,
+          budget.period
+        );
+        if (existing) {
+          await db.runAsync(
+            'UPDATE budgets SET limitAmount = ? WHERE id = ?',
+            existing.limitAmount + budget.limitAmount,
+            existing.id
+          );
+        } else {
+          await db.runAsync(
+            'INSERT INTO budgets (id, categoryId, limitAmount, period) VALUES (?, ?, ?, ?)',
+            `budget-${target.id}-${budget.period}`,
+            target.id,
+            budget.limitAmount,
+            budget.period
+          );
+        }
+      }
+    }
+
     await db.runAsync('DELETE FROM budgets WHERE categoryId = ?', id);
     await db.runAsync('DELETE FROM categories WHERE id = ?', id);
   });
@@ -696,6 +769,11 @@ export async function recordLoanRepayment(
   }
 
   const note = input.note.trim() || `Repayment for ${loan.title}`;
+  // Repayments need this category, so it comes back if it was deleted.
+  const repaymentCategory = defaultCategories.find((item) => item.id === LOAN_REPAYMENT_CATEGORY_ID);
+  if (repaymentCategory) {
+    await insertDefaultCategory(db, repaymentCategory);
+  }
   const transaction = await createTransaction(db, {
     amount: input.amount,
     categoryId: LOAN_REPAYMENT_CATEGORY_ID,

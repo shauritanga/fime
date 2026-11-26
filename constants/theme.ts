@@ -28,3 +28,10 @@ export const radii = {
   md: 14,
   lg: 20,
 };
+
+// Android adds uneven space above and below text, which pushes emojis off centre.
+export const centeredEmoji = {
+  includeFontPadding: false,
+  textAlign: 'center',
+  textAlignVertical: 'center',
+} as const;

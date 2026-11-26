@@ -1,4 +1,4 @@
-import { palette, radii, spacing } from '@/constants/theme';
+import { centeredEmoji, palette, radii, spacing } from '@/constants/theme';
 import { formatShortDate, formatSignedMoney } from '@/lib/finance/format';
 import type { Category, Transaction } from '@/lib/finance/types';
 import { SymbolView } from 'expo-symbols';
@@ -42,7 +42,13 @@ export function TransactionCard({
         showDivider && styles.dividedCard,
         pressed && styles.pressed,
       ]}>
-      <View style={styles.transactionIcon}>
+      <View
+        style={[
+          styles.transactionIcon,
+          category?.emoji
+            ? { backgroundColor: `${category.color}1F`, borderColor: `${category.color}55` }
+            : null,
+        ]}>
         {category?.emoji ? (
           <Text allowFontScaling={false} style={styles.emoji}>
             {category.emoji}
@@ -124,11 +130,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   emoji: {
-    fontSize: 23,
+    ...centeredEmoji,
+    fontSize: 22,
+    lineHeight: 28,
   },
   transactionIcon: {
     alignItems: 'center',
     backgroundColor: palette.emeraldSoft,
+    borderColor: palette.emeraldSoft,
+    borderWidth: 1,
     borderRadius: 999,
     height: 46,
     justifyContent: 'center',

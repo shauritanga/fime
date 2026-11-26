@@ -7,6 +7,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   BudgetRequiredError,
   CategoryError,
+  countCategoryRecords,
   createCategory,
   createLoan,
   createRecurringTransaction,
@@ -206,10 +207,21 @@ const editCategory: Action = async ({ db }, args) => {
 
 const removeCategory: Action = async ({ db }, args) => {
   const category = await anyCategory(db, args.category);
+  const target = args.move_to === undefined ? undefined : await anyCategory(db, args.move_to);
+  if (target && (target.id === category.id || target.type !== category.type)) {
+    throw new Refused(`The records must move to another ${category.type} category.`);
+  }
+  const records = await countCategoryRecords(db, category.id);
+  if (records && !target) {
+    throw new Refused(
+      `${category.name} is used by ${records} records. Ask which ${category.type} category to move them to.`
+    );
+  }
   const label = `${category.emoji} ${category.name}`;
+  const moving = records && target ? ` and move its ${records} records to ${target.name}` : '';
 
-  return waiting(`Delete the category ${label} and any budget for it?`, async () => {
-    await deleteCategory(db, category.id);
+  return waiting(`Delete the category ${label}${moving}? Its budget limits ${target ? 'move too' : 'are removed'}.`, async () => {
+    await deleteCategory(db, category.id, target?.id);
     return { summary: `Deleted category ${label}` };
   });
 };

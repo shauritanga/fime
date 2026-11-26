@@ -9,7 +9,7 @@ import {
 import { Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { MonthPickerSheet } from '@/components/MonthPickerSheet';
 import { PopupMenu } from '@/components/PopupMenu';
-import { palette, radii, spacing } from '@/constants/theme';
+import { centeredEmoji, palette, radii, spacing } from '@/constants/theme';
 import {
   budgetReport,
   categoryBreakdown,
@@ -398,7 +398,7 @@ function CategoryRow({ item, showChange }: { item: CategorySpend; showChange?: b
 
   return (
     <Panel style={styles.categoryRow}>
-      <View style={[styles.categoryIcon, { backgroundColor: `${item.color}22` }]}>
+      <View style={[styles.categoryIcon, { backgroundColor: `${item.color}1F`, borderColor: `${item.color}55` }]}>
         <Text allowFontScaling={false} style={styles.categoryEmoji}>
           {item.emoji}
         </Text>
@@ -689,9 +689,12 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   categoryEmoji: {
+    ...centeredEmoji,
     fontSize: 24,
+    lineHeight: 30,
   },
   categoryIcon: {
+    borderWidth: 1,
     alignItems: 'center',
     borderRadius: radii.md,
     height: 48,
