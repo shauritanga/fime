@@ -5,7 +5,10 @@ export type Category = {
   name: string;
   type: TransactionType;
   color: string;
+  emoji: string;
 };
+
+export type CategoryInput = Pick<Category, 'name' | 'type' | 'emoji'>;
 
 export type Transaction = {
   id: string;

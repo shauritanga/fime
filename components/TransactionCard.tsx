@@ -43,7 +43,13 @@ export function TransactionCard({
         pressed && styles.pressed,
       ]}>
       <View style={styles.transactionIcon}>
-        <SymbolView name={icon} tintColor={palette.emerald} size={25} />
+        {category?.emoji ? (
+          <Text allowFontScaling={false} style={styles.emoji}>
+            {category.emoji}
+          </Text>
+        ) : (
+          <SymbolView name={icon} tintColor={palette.emerald} size={25} />
+        )}
       </View>
       <View style={styles.transactionMiddle}>
         <Text numberOfLines={1} style={styles.transactionTitle}>
@@ -66,7 +72,7 @@ export function TransactionCard({
   );
 }
 
-export function getCategoryIcon(categoryId: string) {
+function getCategoryIcon(categoryId: string) {
   const icons = {
     food: { ios: 'cup.and.saucer.fill', android: 'local_cafe', web: 'local_cafe' },
     freelance: { ios: 'briefcase.fill', android: 'work', web: 'work' },
@@ -116,6 +122,9 @@ const styles = StyleSheet.create({
   dividedCard: {
     borderTopColor: palette.border,
     borderTopWidth: 1,
+  },
+  emoji: {
+    fontSize: 23,
   },
   transactionIcon: {
     alignItems: 'center',

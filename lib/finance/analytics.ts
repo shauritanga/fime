@@ -20,8 +20,8 @@ const chartColors: Record<string, string> = {
 };
 export const otherColor = '#9AA19D';
 
-export function categoryColor(categoryId: string) {
-  return chartColors[categoryId] ?? otherColor;
+export function categoryColor(categoryId: string, own?: string) {
+  return chartColors[categoryId] ?? own ?? otherColor;
 }
 
 export function sumTotals(transactions: Transaction[]): Totals {
@@ -95,6 +95,7 @@ export function daySeries(transactions: Transaction[], period: string, today: st
 export type CategorySpend = {
   id: string;
   name: string;
+  emoji: string;
   color: string;
   amount: number;
   /** 0 to 1 of the month's spending. */
@@ -118,10 +119,12 @@ export function categoryBreakdown(
     .map((id) => {
       const rows = expenses.filter((item) => item.categoryId === id);
       const amount = sumTotals(rows).expense;
+      const category = categories.find((item) => item.id === id);
       return {
         id,
-        name: categories.find((category) => category.id === id)?.name ?? 'Other',
-        color: categoryColor(id),
+        name: category?.name ?? 'Other',
+        emoji: category?.emoji ?? '',
+        color: categoryColor(id, category?.color),
         amount,
         share: total > 0 ? amount / total : 0,
         count: rows.length,

@@ -1,5 +1,6 @@
-import { ActionButton, CategoryChips, insightFormStyles } from '@/components/insights-controls';
+import { ActionButton, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
+import { CategoryPicker } from '@/components/CategoryPicker';
 import { Card, EmptyState, financeStyles, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
 import { BudgetRequiredError, LOAN_REPAYMENT_CATEGORY_ID } from '@/lib/finance/database';
@@ -18,6 +19,7 @@ export default function SubscriptionsScreen() {
     categories,
     expenseCategories,
     paySubscription,
+    refresh,
     saveSubscription: updateSubscription,
     subscriptions,
   } = useFinance();
@@ -195,7 +197,14 @@ export default function SubscriptionsScreen() {
           <DateField label="Next due date" style={styles.column} value={due} onChange={setDue} />
         </View>
         <Field label="Category">
-          <CategoryChips categories={billCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+          <CategoryPicker
+            categories={billCategories}
+            inSheet
+            onChanged={refresh}
+            onSelect={setCategoryId}
+            selectedId={selectedCategoryId}
+            type="expense"
+          />
         </Field>
         <ActionButton label={editingSubscription ? 'Save changes' : 'Add subscription'} onPress={saveSubscription} />
       </BottomSheet>

@@ -14,6 +14,7 @@ import type {
   BudgetInput,
   BudgetProgress,
   Category,
+  CategoryInput,
   DashboardSummary,
   Loan,
   LoanActivity,
@@ -35,6 +36,9 @@ type SumRow = { total: number | null };
 type MetaRow = { value: string };
 
 export const LOAN_REPAYMENT_CATEGORY_ID = 'loan-repayment';
+
+/** A category problem whose message can be shown to the user. */
+export class CategoryError extends Error {}
 
 export class BudgetRequiredError extends Error {
   categoryId: string;
@@ -131,15 +135,23 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     );
   `);
 
+  // Added after the first release, so existing installs need the column.
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
+  if (!columns.some((column) => column.name === 'emoji')) {
+    await db.execAsync("ALTER TABLE categories ADD COLUMN emoji TEXT NOT NULL DEFAULT ''");
+  }
+
   for (const category of defaultCategories) {
     await db.runAsync(
-      `INSERT INTO categories (id, name, type, color)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, color = excluded.color`,
+      `INSERT INTO categories (id, name, type, color, emoji)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, color = excluded.color,
+         emoji = excluded.emoji`,
       category.id,
       category.name,
       category.type,
-      category.color
+      category.color,
+      category.emoji
     );
   }
 
@@ -158,6 +170,7 @@ export async function migrateDatabase(db: SQLiteDatabase) {
 export async function eraseAllData(db: SQLiteDatabase) {
   await db.withTransactionAsync(async () => {
     await clearUserData(db);
+    await db.runAsync("DELETE FROM categories WHERE id LIKE 'cat-%'");
     // The one-time cleanup flag stays: without it, the next start would clear new data.
     await db.runAsync("DELETE FROM app_meta WHERE key LIKE 'assistant-consent%'");
   });
@@ -176,6 +189,85 @@ export async function setSetting(db: SQLiteDatabase, key: string, value: string)
 
 export async function listCategories(db: SQLiteDatabase) {
   return db.getAllAsync<Category>('SELECT * FROM categories ORDER BY type DESC, name ASC');
+}
+
+// -------------------------------------------------------------------------- the user's own categories
+
+const CUSTOM_PREFIX = 'cat-';
+// Distinct from the built-in colours; reused in turn.
+const customColors = ['#0F9BD7', '#C2410C', '#7C3AED', '#0D9488', '#BE185D', '#4D7C0F', '#A16207', '#475569'];
+
+export function isCustomCategory(id: string) {
+  return id.startsWith(CUSTOM_PREFIX);
+}
+
+async function checkCategory(db: SQLiteDatabase, input: { name: string; emoji: string }, ownId = '') {
+  const name = input.name.trim().replace(/\s+/g, ' ');
+  const emoji = input.emoji.trim();
+  if (name.length < 2 || name.length > 30) {
+    throw new CategoryError('Give the category a name of 2 to 30 characters.');
+  }
+  // One emoji can be several characters long; letters, digits and spaces mean it isn't one.
+  if (!emoji || emoji.length > 16 || /[A-Za-z0-9\s]/.test(emoji)) {
+    throw new CategoryError('Choose one emoji for the category.');
+  }
+  const same = (await listCategories(db)).find(
+    (item) => item.id !== ownId && item.name.toLowerCase() === name.toLowerCase()
+  );
+  if (same) {
+    throw new CategoryError(`You already have a category called ${same.name}.`);
+  }
+  return { name, emoji };
+}
+
+export async function createCategory(db: SQLiteDatabase, input: CategoryInput) {
+  const checked = await checkCategory(db, input);
+  const count = (await listCategories(db)).filter((item) => isCustomCategory(item.id)).length;
+  const category: Category = {
+    ...checked,
+    type: input.type,
+    color: customColors[count % customColors.length],
+    id: `${CUSTOM_PREFIX}${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+  };
+  await db.runAsync(
+    'INSERT INTO categories (id, name, type, color, emoji) VALUES (?, ?, ?, ?, ?)',
+    category.id,
+    category.name,
+    category.type,
+    category.color,
+    category.emoji
+  );
+  return category;
+}
+
+export async function updateCategory(db: SQLiteDatabase, id: string, input: { name: string; emoji: string }) {
+  if (!isCustomCategory(id)) {
+    throw new CategoryError('Built-in categories can\'t be changed.');
+  }
+  const checked = await checkCategory(db, input, id);
+  await db.runAsync('UPDATE categories SET name = ?, emoji = ? WHERE id = ?', checked.name, checked.emoji, id);
+}
+
+/** Removes an unused category along with its budgets. Records are never left without a category. */
+export async function deleteCategory(db: SQLiteDatabase, id: string) {
+  if (!isCustomCategory(id)) {
+    throw new CategoryError('Built-in categories can\'t be deleted.');
+  }
+  await db.withTransactionAsync(async () => {
+    const used = await db.getFirstAsync<SumRow>(
+      `SELECT (SELECT COUNT(*) FROM transactions WHERE categoryId = ?)
+            + (SELECT COUNT(*) FROM subscriptions WHERE categoryId = ?)
+            + (SELECT COUNT(*) FROM recurring_transactions WHERE categoryId = ?) as total`,
+      id,
+      id,
+      id
+    );
+    if (used?.total) {
+      throw new CategoryError('This category is in use by transactions or bills, so it was kept.');
+    }
+    await db.runAsync('DELETE FROM budgets WHERE categoryId = ?', id);
+    await db.runAsync('DELETE FROM categories WHERE id = ?', id);
+  });
 }
 
 export async function listTransactions(db: SQLiteDatabase) {
@@ -722,6 +814,7 @@ export async function listBudgetProgress(
         name: 'Category',
         type: 'expense' as const,
         color: '#888888',
+        emoji: '',
       },
       spent,
       remaining: budget.limitAmount - spent,

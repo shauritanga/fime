@@ -1,5 +1,6 @@
-import { ActionButton, CategoryChips, insightFormStyles } from '@/components/insights-controls';
+import { ActionButton, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
+import { CategoryPicker } from '@/components/CategoryPicker';
 import { Card, EmptyState, financeStyles, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
 import { BudgetRequiredError, LOAN_REPAYMENT_CATEGORY_ID } from '@/lib/finance/database';
@@ -18,6 +19,7 @@ export default function RecurringScreen() {
     categories,
     expenseCategories,
     postDueRecurring,
+    refresh,
     recurringTransactions,
   } = useFinance();
   const [type, setType] = useState<TransactionType>('expense');
@@ -190,7 +192,15 @@ export default function RecurringScreen() {
           ))}
         </View>
         <Field label="Category">
-          <CategoryChips categories={recurringCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+          <CategoryPicker
+            categories={recurringCategories}
+            inSheet
+            key={type}
+            onChanged={refresh}
+            onSelect={setCategoryId}
+            selectedId={selectedCategoryId}
+            type={type}
+          />
         </Field>
         <ActionButton label="Add recurring" onPress={saveRecurring} />
       </BottomSheet>

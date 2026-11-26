@@ -9,7 +9,6 @@ import {
 import { Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { MonthPickerSheet } from '@/components/MonthPickerSheet';
 import { PopupMenu } from '@/components/PopupMenu';
-import { getCategoryIcon } from '@/components/TransactionCard';
 import { palette, radii, spacing } from '@/constants/theme';
 import {
   budgetReport,
@@ -399,8 +398,10 @@ function CategoryRow({ item, showChange }: { item: CategorySpend; showChange?: b
 
   return (
     <Panel style={styles.categoryRow}>
-      <View style={[styles.categoryIcon, { backgroundColor: item.color }]}>
-        <SymbolView name={getCategoryIcon(item.id)} tintColor={palette.white} size={22} />
+      <View style={[styles.categoryIcon, { backgroundColor: `${item.color}22` }]}>
+        <Text allowFontScaling={false} style={styles.categoryEmoji}>
+          {item.emoji}
+        </Text>
       </View>
       <View style={styles.categoryCopy}>
         <View style={styles.sectionRow}>
@@ -686,6 +687,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     padding: spacing.sm,
+  },
+  categoryEmoji: {
+    fontSize: 24,
   },
   categoryIcon: {
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import { BottomSheet } from '@/components/BottomSheet';
+import { CategoryPicker } from '@/components/CategoryPicker';
 import { Card, EmptyState, financeStyles, Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { currentPeriod, formatMoney, formatPeriod } from '@/lib/finance/format';
@@ -9,7 +10,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SheetInput } from '@/components/form-fields';
 
 export default function MoreBudgetsScreen() {
-  const { budgets, expenseCategories, saveBudget } = useFinance();
+  const { budgets, expenseCategories, refresh, saveBudget } = useFinance();
   const [categoryId, setCategoryId] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -51,7 +52,9 @@ export default function MoreBudgetsScreen() {
             <Card key={budget.id}>
               <View style={financeStyles.row}>
                 <View>
-                  <Text style={styles.itemTitle}>{budget.category.name}</Text>
+                  <Text style={styles.itemTitle}>
+                    {budget.category.emoji} {budget.category.name}
+                  </Text>
                   <Muted>{formatMoney(budget.spent)} spent</Muted>
                 </View>
                 <Text style={isOver ? styles.over : styles.remaining}>
@@ -96,21 +99,14 @@ export default function MoreBudgetsScreen() {
         </View>
 
         <Text style={styles.inputLabel}>Category</Text>
-        <View style={financeStyles.chipRow}>
-          {expenseCategories.map((category) => (
-            <Pressable
-              key={category.id}
-              onPress={() => setCategoryId(category.id)}
-              style={[
-                styles.categoryChip,
-                selectedCategoryId === category.id && { backgroundColor: category.color, borderColor: category.color },
-              ]}>
-              <Text style={[styles.categoryText, selectedCategoryId === category.id && styles.categoryTextActive]}>
-                {category.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <CategoryPicker
+          categories={expenseCategories}
+          inSheet
+          onChanged={refresh}
+          onSelect={setCategoryId}
+          selectedId={selectedCategoryId}
+          type="expense"
+        />
 
         <SheetInput
           containerStyle={styles.amountField}
@@ -146,22 +142,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: spacing.xs,
     marginTop: spacing.lg,
-  },
-  categoryChip: {
-    backgroundColor: palette.background,
-    borderColor: palette.border,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  categoryText: {
-    color: palette.muted,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  categoryTextActive: {
-    color: palette.white,
   },
   amountField: {
     marginTop: spacing.lg,

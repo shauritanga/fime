@@ -6,12 +6,15 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   BudgetRequiredError,
+  CategoryError,
+  createCategory,
   createLoan,
   createRecurringTransaction,
   createSavingsGoal,
   createSubscription,
   createTransaction,
   deleteBudget,
+  deleteCategory,
   deleteLoanActivity,
   deleteRecurringTransaction,
   deleteSavingsGoal,
@@ -33,6 +36,7 @@ import {
   restoreTransaction,
   setRecurringNextDate,
   setSubscriptionDueDate,
+  updateCategory,
   updateSubscription,
   updateTransaction,
   upsertBudget,
@@ -164,6 +168,50 @@ const setBudget: Action = async ({ db }, args) => {
     },
     { previous_limit: previous?.limitAmount ?? null, spent_this_month: spent, left: amount - spent }
   );
+};
+
+async function anyCategory(db: SQLiteDatabase, value: unknown) {
+  const all = new Map((await listCategories(db)).map((item) => [item.id, item]));
+  const category = findCategory(all, text(value));
+  if (!category) {
+    throw new Refused(`No category has that name. The categories are: ${[...all.values()].map((item) => item.name).join(', ')}.`);
+  }
+  return category;
+}
+
+const addCategory: Action = async ({ db }, args) => {
+  const type = typeOf(args.type);
+  const category = await createCategory(db, {
+    type,
+    name: required(args.name, 'the name of the category'),
+    emoji: required(args.emoji, 'an emoji for the category'),
+  });
+
+  return saved({
+    summary: `Added ${type} category: ${category.emoji} ${category.name}`,
+    undo: () => deleteCategory(db, category.id),
+  });
+};
+
+const editCategory: Action = async ({ db }, args) => {
+  const before = await anyCategory(db, args.category);
+  const after = { name: text(args.new_name) || before.name, emoji: text(args.emoji, 20) || before.emoji };
+  await updateCategory(db, before.id, after);
+
+  return saved({
+    summary: `Updated category: ${after.emoji} ${after.name}`,
+    undo: () => updateCategory(db, before.id, before),
+  });
+};
+
+const removeCategory: Action = async ({ db }, args) => {
+  const category = await anyCategory(db, args.category);
+  const label = `${category.emoji} ${category.name}`;
+
+  return waiting(`Delete the category ${label} and any budget for it?`, async () => {
+    await deleteCategory(db, category.id);
+    return { summary: `Deleted category ${label}` };
+  });
 };
 
 const addTransaction: Action = async ({ db }, args) => {
@@ -448,6 +496,9 @@ const openScreen: Action = async (_context, args) => {
 };
 
 const actions: Record<string, Action> = {
+  add_category: addCategory,
+  update_category: editCategory,
+  delete_category: removeCategory,
   set_budget: setBudget,
   add_transaction: addTransaction,
   update_transaction: editTransaction,
@@ -476,7 +527,7 @@ export async function runAction(context: Context, name: string, args: Args): Pro
   try {
     return await actions[name](context, args);
   } catch (error) {
-    if (error instanceof Refused) {
+    if (error instanceof Refused || error instanceof CategoryError) {
       return { data: { saved: false, error: error.message } };
     }
     if (error instanceof BudgetRequiredError) {

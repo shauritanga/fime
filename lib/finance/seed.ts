@@ -2,15 +2,15 @@ import { palette } from '@/constants/theme';
 import type { Budget, Category, Transaction } from './types';
 
 export const defaultCategories: Category[] = [
-  { id: 'salary', name: 'Salary', type: 'income', color: palette.emerald },
-  { id: 'freelance', name: 'Freelance', type: 'income', color: '#2D6F9F' },
-  { id: 'food', name: 'Food', type: 'expense', color: palette.coral },
-  { id: 'transport', name: 'Transport', type: 'expense', color: '#8B6F47' },
-  { id: 'home', name: 'Home', type: 'expense', color: palette.gold },
-  { id: 'utilities', name: 'Utilities', type: 'expense', color: '#606C85' },
-  { id: 'health', name: 'Health', type: 'expense', color: '#B45474' },
-  { id: 'fun', name: 'Leisure', type: 'expense', color: '#795B9F' },
-  { id: 'loan-repayment', name: 'Loan repayment', type: 'expense', color: '#5F6D7A' },
+  { id: 'salary', name: 'Salary', type: 'income', color: palette.emerald, emoji: '💰' },
+  { id: 'freelance', name: 'Freelance', type: 'income', color: '#2D6F9F', emoji: '💼' },
+  { id: 'food', name: 'Food', type: 'expense', color: palette.coral, emoji: '🍽️' },
+  { id: 'transport', name: 'Transport', type: 'expense', color: '#8B6F47', emoji: '🚌' },
+  { id: 'home', name: 'Home', type: 'expense', color: palette.gold, emoji: '🏠' },
+  { id: 'utilities', name: 'Utilities', type: 'expense', color: '#606C85', emoji: '💡' },
+  { id: 'health', name: 'Health', type: 'expense', color: '#B45474', emoji: '💊' },
+  { id: 'fun', name: 'Leisure', type: 'expense', color: '#795B9F', emoji: '🎉' },
+  { id: 'loan-repayment', name: 'Loan repayment', type: 'expense', color: '#5F6D7A', emoji: '🤝' },
 ];
 
 export const sampleTransactions: Transaction[] = [

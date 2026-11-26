@@ -7,7 +7,7 @@ export function CategoryChips({
   onSelect,
   selectedId,
 }: {
-  categories: Array<{ id: string; name: string; color: string }>;
+  categories: Array<{ id: string; name: string; color: string; emoji?: string }>;
   onSelect: (id: string) => void;
   selectedId: string;
 }) {
@@ -25,6 +25,7 @@ export function CategoryChips({
             },
           ]}>
           <Text style={[styles.categoryText, selectedId === category.id && styles.categoryTextActive]}>
+            {category.emoji ? `${category.emoji} ` : ''}
             {category.name}
           </Text>
         </Pressable>

@@ -31,6 +31,8 @@ CASES = [
     ("Weka bajeti ya usafiri elfu 40", {"set_budget"}, {"category": "transport", "amount": 40000}),
     ("Create a transport budget", set()),
     ("How much is my transport budget?", {"budget_status"}),
+    ("Create a school fees category with a book emoji", {"add_category"}, {"type": "expense"}),
+    ("Tengeneza kundi jipya la matumizi linaloitwa Sadaka", {"add_category"}),
     # Doing things: the right action, only when asked and when enough is known.
     ("I spent 5000 on lunch", {"add_transaction"}, {"type": "expense", "category": "food", "amount": 5000}),
     ("Nimelipa nauli 2000", {"add_transaction"}, {"type": "expense", "category": "transport", "amount": 2000}),

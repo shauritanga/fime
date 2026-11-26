@@ -1,4 +1,5 @@
-import { Card, Eyebrow, financeStyles, Muted, Screen, Title } from '@/components/finance-ui';
+import { CategoryPicker } from '@/components/CategoryPicker';
+import { Card, Eyebrow, Muted, Screen, Title } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { BudgetRequiredError } from '@/lib/finance/database';
 import { toISODate, todayISO } from '@/lib/finance/format';
@@ -11,7 +12,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function AddScreen() {
-  const { addTransaction, expenseCategories, incomeCategories } = useFinance();
+  const { addTransaction, expenseCategories, incomeCategories, refresh } = useFinance();
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [transactionTitle, setTransactionTitle] = useState('');
@@ -118,21 +119,14 @@ export default function AddScreen() {
           />
 
           <Text style={styles.inputLabel}>Category</Text>
-          <View style={financeStyles.chipRow}>
-            {categories.map((category) => (
-              <Pressable
-                key={category.id}
-                onPress={() => setCategoryId(category.id)}
-                style={[
-                  styles.categoryChip,
-                  selectedCategoryId === category.id && { backgroundColor: category.color, borderColor: category.color },
-                ]}>
-                <Text style={[styles.categoryText, selectedCategoryId === category.id && styles.categoryTextActive]}>
-                  {category.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <CategoryPicker
+            categories={categories}
+            key={type}
+            onChanged={refresh}
+            onSelect={setCategoryId}
+            selectedId={selectedCategoryId}
+            type={type}
+          />
 
           <Text style={styles.inputLabel}>Date</Text>
           <Pressable onPress={() => setShowDatePicker(true)} style={styles.input}>
@@ -213,22 +207,6 @@ const styles = StyleSheet.create({
   dateText: {
     color: palette.ink,
     fontSize: 16,
-  },
-  categoryChip: {
-    backgroundColor: palette.background,
-    borderColor: palette.border,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  categoryText: {
-    color: palette.muted,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  categoryTextActive: {
-    color: palette.white,
   },
   submit: {
     alignItems: 'center',

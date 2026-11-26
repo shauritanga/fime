@@ -1,6 +1,7 @@
 import { BottomSheet } from '@/components/BottomSheet';
 import { Muted } from '@/components/finance-ui';
-import { ActionButton, CategoryChips } from '@/components/insights-controls';
+import { CategoryPicker } from '@/components/CategoryPicker';
+import { ActionButton } from '@/components/insights-controls';
 import { palette, radii, spacing } from '@/constants/theme';
 import { deleteTransaction, isLoanTransaction, updateTransaction } from '@/lib/finance/database';
 import { formatSignedMoney, toISODate } from '@/lib/finance/format';
@@ -118,10 +119,14 @@ export function TransactionEditSheet({
       <BottomSheetTextInput onChangeText={setNote} style={styles.input} value={note} />
 
       <Text style={styles.label}>Category</Text>
-      <CategoryChips
+      <CategoryPicker
         categories={categories.filter((category) => category.type === transaction.type)}
-        onSelect={setCategoryId}
+        inSheet
+        onChanged={onChanged}
+        // Removing the selected (new, unused) category falls back to the original one.
+        onSelect={(id) => setCategoryId(id || transaction.categoryId)}
         selectedId={categoryId}
+        type={transaction.type}
       />
 
       <Text style={styles.label}>Date</Text>
