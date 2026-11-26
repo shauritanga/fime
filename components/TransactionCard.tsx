@@ -66,7 +66,7 @@ export function TransactionCard({
   );
 }
 
-function getCategoryIcon(categoryId: string) {
+export function getCategoryIcon(categoryId: string) {
   const icons = {
     food: { ios: 'cup.and.saucer.fill', android: 'local_cafe', web: 'local_cafe' },
     freelance: { ios: 'briefcase.fill', android: 'work', web: 'work' },

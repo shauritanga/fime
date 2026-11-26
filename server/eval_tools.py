@@ -25,6 +25,12 @@ CASES = [
     ("How are my savings goals going?", {"savings_goals"}),
     ("Malengo yangu ya akiba yamefikia wapi?", {"savings_goals"}),
     ("Who won the 2022 world cup?", set()),
+    # Changing a budget: only when asked, with the right category and amount.
+    ("Create a budget for transport 40000", {"set_budget"}, {"category": "transport", "amount": 40000}),
+    ("Set my food budget to 250,000", {"set_budget"}, {"category": "food", "amount": 250000}),
+    ("Weka bajeti ya usafiri elfu 40", {"set_budget"}, {"category": "transport", "amount": 40000}),
+    ("Create a transport budget", set()),
+    ("How much is my transport budget?", {"budget_status"}),
     # Dates (today is Thursday 2026-11-26): the right tool AND the right days.
     ("What is my spend today", {"period_totals"}, ("2026-11-26", "2026-11-26")),
     ("What is my daily expense from yesterday", {"period_totals"}, ("2026-11-25", "2026-11-25")),
@@ -58,7 +64,11 @@ def main():
         called = [call["name"] for call in calls]
         ok = bool(set(called) & expected) if expected else not called
         asked = None
-        if dates and ok:
+        if dates and ok and isinstance(dates[0], dict):
+            arguments = calls[0]["arguments"]
+            asked = (str(arguments.get("category", "")).lower(), arguments.get("amount"))
+            ok = asked == (dates[0]["category"], dates[0]["amount"])
+        elif dates and ok:
             arguments = calls[0]["arguments"]
             asked = (arguments.get("from"), arguments.get("to") or arguments.get("from"))
             ok = asked == dates[0]

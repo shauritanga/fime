@@ -6,16 +6,18 @@ import { ask, newChat, useChat } from '@/lib/assistant/store';
 import { useVoice, type VoiceMode } from '@/lib/assistant/useVoice';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getSetting, setSetting } from '@/lib/finance/database';
+import { openPrivacyPolicy } from '@/lib/privacy';
 import { Redirect, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Raised when voice input was added: recordings are a new kind of data to agree to.
-const CONSENT_KEY = 'assistant-consent-v2';
+// Raised whenever what the assistant does with data changes, so people agree to it again.
+const CONSENT_KEY = 'assistant-consent-v3';
 
 type IconName = SymbolViewProps['name'];
 
@@ -23,22 +25,14 @@ const icons = {
   add: { ios: 'plus', android: 'add', web: 'add' },
   back: { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' },
   check: { ios: 'checkmark', android: 'check', web: 'check' },
-  chevron: { ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' },
   close: { ios: 'xmark', android: 'close', web: 'close' },
   menu: { ios: 'line.3.horizontal', android: 'notes', web: 'notes' },
   mic: { ios: 'mic', android: 'mic_none', web: 'mic_none' },
+  newChat: { ios: 'plus.bubble', android: 'add_comment', web: 'add_comment' },
   send: { ios: 'arrow.up', android: 'arrow_upward', web: 'arrow_upward' },
+  sparkle: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
   voice: { ios: 'waveform', android: 'graphic_eq', web: 'graphic_eq' },
-  spending: { ios: 'chart.pie', android: 'donut_large', web: 'donut_large' },
-  save: { ios: 'questionmark', android: 'help_outline', web: 'help_outline' },
-  budget: { ios: 'magnifyingglass', android: 'search', web: 'search' },
 } satisfies Record<string, IconName>;
-
-const suggestions = [
-  { icon: icons.spending, label: 'Analyze my spending', question: 'Analyze my spending this month' },
-  { icon: icons.save, label: 'How can I save more?', question: 'How can I save more?' },
-  { icon: icons.budget, label: 'Check my budget', question: 'Check my budget' },
-];
 
 export default function AssistantScreen() {
   const db = useSQLiteContext();
@@ -49,6 +43,14 @@ export default function AssistantScreen() {
   const [draft, setDraft] = useState('');
   const [menu, setMenu] = useState<'header' | 'actions' | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  // The composer rides on top of the keyboard. This follows the keyboard's own height, which works
+  // the same whether or not Android resizes the window.
+  const insets = useSafeAreaInsets();
+  const keyboard = useReanimatedKeyboardAnimation();
+  const bottomSpace = useAnimatedStyle(() => ({
+    // `height` is negative while the keyboard is up.
+    paddingBottom: Math.max(-keyboard.height.value, insets.bottom),
+  }));
 
   const onVoiceText = useCallback(
     (text: string, mode: VoiceMode) => {
@@ -106,8 +108,8 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.flex}>
-        <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.flex}>
+        <Animated.View style={[styles.flex, bottomSpace]}>
           <View style={styles.header}>
             {consented ? (
               <IconButton
@@ -122,22 +124,22 @@ export default function AssistantScreen() {
               accessibilityRole="button"
               disabled={!consented}
               onPress={() => setMenu((open) => (open === 'header' ? null : 'header'))}
-              style={styles.title}>
+              style={({ pressed }) => [styles.titlePill, pressed && styles.pressed]}>
+              <SymbolView name={icons.sparkle} size={18} tintColor={palette.emerald} />
               <Text style={styles.titleText}>Assistant</Text>
-              {consented ? <SymbolView name={icons.chevron} size={20} tintColor={palette.muted} /> : null}
             </Pressable>
-            <Pressable
-              accessibilityLabel="New chat"
-              accessibilityRole="button"
-              disabled={!consented}
-              onPress={() => {
-                newChat();
-                setDraft('');
-                setMenu(null);
-              }}
-              style={({ pressed }) => [styles.circle, pressed && styles.pressed]}>
-              <Mascot size={28} />
-            </Pressable>
+            <View style={styles.flex} />
+            {consented ? (
+              <IconButton
+                icon={icons.newChat}
+                label="New chat"
+                onPress={() => {
+                  newChat();
+                  setDraft('');
+                  setMenu(null);
+                }}
+              />
+            ) : null}
           </View>
 
           {menu === 'header' ? (
@@ -174,8 +176,14 @@ export default function AssistantScreen() {
                   Fime does not keep it.
                 </Text>
                 <Text style={styles.noticeText}>• Your password, phone number and lenders&apos; names are not sent.</Text>
-                <Text style={styles.noticeText}>• It can read your data but cannot change it. Answers can be wrong.</Text>
+                <Text style={styles.noticeText}>
+                  • It can read your data, and it sets or replaces a budget as soon as you ask it to. It
+                  cannot change anything else. Answers can be wrong, so check what it saved.
+                </Text>
               </View>
+              <Pressable accessibilityRole="link" onPress={openPrivacyPolicy} style={styles.policyLink}>
+                <Text style={styles.policyText}>Read the privacy policy</Text>
+              </Pressable>
               <Pressable accessibilityRole="button" onPress={accept} style={styles.primary}>
                 <Text style={styles.primaryText}>Turn on assistant</Text>
               </Pressable>
@@ -183,33 +191,13 @@ export default function AssistantScreen() {
           ) : (
             <>
               <ScrollView
-                contentContainerStyle={[styles.messages, turns.length === 0 && styles.welcome]}
+                contentContainerStyle={styles.messages}
                 keyboardShouldPersistTaps="handled"
                 onContentSizeChange={() => turns.length > 0 && scrollRef.current?.scrollToEnd({ animated: true })}
                 onTouchStart={() => setMenu(null)}
                 ref={scrollRef}
                 showsVerticalScrollIndicator={false}>
-                {turns.length === 0 ? (
-                  <>
-                    <View style={styles.hero}>
-                      <Mascot size={124} />
-                      <Text style={styles.greeting}>What can I help you{'\n'}with today?</Text>
-                    </View>
-                    <View>
-                      {suggestions.map((item) => (
-                        <Pressable
-                          accessibilityRole="button"
-                          key={item.label}
-                          onPress={() => send(item.question)}
-                          style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}>
-                          <SymbolView name={item.icon} size={20} tintColor={palette.muted} />
-                          <Text style={styles.suggestionText}>{item.label}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                ) : (
-                  turns.map((turn) => (
+                {turns.map((turn) => (
                     <View key={turn.id}>
                       <View style={styles.question}>
                         <Text style={styles.questionText}>{turn.question}</Text>
@@ -229,8 +217,7 @@ export default function AssistantScreen() {
                         <TypingDots />
                       )}
                     </View>
-                  ))
-                )}
+                ))}
 
               </ScrollView>
 
@@ -258,9 +245,20 @@ export default function AssistantScreen() {
               ) : null}
 
               <View style={styles.composer}>
+                {recording ? (
+                  <IconButton icon={icons.close} label="Cancel recording" onPress={voice.cancel} plain />
+                ) : (
+                  <IconButton
+                    icon={menu === 'actions' ? icons.close : icons.add}
+                    label={menu === 'actions' ? 'Close actions' : 'More actions'}
+                    onPress={() => setMenu((open) => (open === 'actions' ? null : 'actions'))}
+                    plain
+                  />
+                )}
+
                 {recording || transcribing ? (
                   <View accessibilityLiveRegion="polite" style={styles.listening}>
-                    <Text style={styles.listeningText}>
+                    <Text numberOfLines={1} style={styles.listeningText}>
                       {recording
                         ? `Listening… 0:${String(Math.min(voice.seconds, 60)).padStart(2, '0')}`
                         : 'Writing what you said…'}
@@ -274,66 +272,50 @@ export default function AssistantScreen() {
                     multiline
                     onChangeText={setDraft}
                     onFocus={() => setMenu(null)}
-                    placeholder="Ask me anything about your money…"
+                    placeholder="Ask Fime"
                     placeholderTextColor={palette.muted}
                     style={styles.input}
                     value={draft}
                   />
                 )}
 
-                <View style={styles.composerRow}>
-                  {recording ? (
-                    <IconButton icon={icons.close} label="Cancel recording" onPress={voice.cancel} plain />
-                  ) : (
-                    <IconButton
-                      icon={menu === 'actions' ? icons.close : icons.add}
-                      label={menu === 'actions' ? 'Close actions' : 'More actions'}
-                      onPress={() => setMenu((open) => (open === 'actions' ? null : 'actions'))}
-                      plain
-                    />
-                  )}
-                  <View style={styles.flex} />
-                  {!recording ? (
-                    <IconButton
-                      disabled={transcribing}
-                      faint
-                      icon={icons.mic}
-                      label="Dictate your question"
-                      onPress={() => voice.start('dictate')}
-                      plain
-                    />
-                  ) : null}
-                  <Pressable
-                    accessibilityLabel={
-                      recording ? 'Finish recording' : hasDraft ? 'Send' : 'Ask with your voice'
+                {!recording ? (
+                  <IconButton
+                    disabled={transcribing}
+                    icon={icons.mic}
+                    label="Dictate your question"
+                    onPress={() => voice.start('dictate')}
+                    plain
+                  />
+                ) : null}
+                <Pressable
+                  accessibilityLabel={recording ? 'Finish recording' : hasDraft ? 'Send' : 'Ask with your voice'}
+                  accessibilityRole="button"
+                  disabled={transcribing || (busy && !recording)}
+                  onPress={() => {
+                    if (recording) {
+                      voice.done();
+                    } else if (hasDraft) {
+                      send(draft);
+                    } else {
+                      setMenu(null);
+                      voice.start('ask');
                     }
-                    accessibilityRole="button"
-                    disabled={transcribing || (hasDraft && busy) || (!hasDraft && !recording && busy)}
-                    onPress={() => {
-                      if (recording) {
-                        voice.done();
-                      } else if (hasDraft) {
-                        send(draft);
-                      } else {
-                        setMenu(null);
-                        voice.start('ask');
-                      }
-                    }}
-                    style={({ pressed }) => [
-                      styles.mainButton,
-                      (pressed || transcribing || (busy && !recording)) && styles.pressed,
-                    ]}>
-                    <SymbolView
-                      name={recording ? icons.check : hasDraft ? icons.send : icons.voice}
-                      size={24}
-                      tintColor={palette.white}
-                    />
-                  </Pressable>
-                </View>
+                  }}
+                  style={({ pressed }) => [
+                    styles.mainButton,
+                    (pressed || transcribing || (busy && !recording)) && styles.pressed,
+                  ]}>
+                  <SymbolView
+                    name={recording ? icons.check : hasDraft ? icons.send : icons.voice}
+                    size={22}
+                    tintColor={palette.white}
+                  />
+                </Pressable>
               </View>
             </>
           )}
-        </KeyboardAvoidingView>
+        </Animated.View>
       </SafeAreaView>
     </View>
   );
@@ -341,14 +323,12 @@ export default function AssistantScreen() {
 
 function IconButton({
   disabled,
-  faint,
   icon,
   label,
   onPress,
   plain,
 }: {
   disabled?: boolean;
-  faint?: boolean;
   icon: IconName;
   label: string;
   onPress: () => void;
@@ -362,7 +342,7 @@ function IconButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [plain ? styles.plainButton : styles.circle, pressed && styles.pressed]}>
-      <SymbolView name={icon} size={26} tintColor={faint ? palette.muted : palette.ink} />
+      <SymbolView name={icon} size={26} tintColor={palette.ink} />
     </Pressable>
   );
 }
@@ -386,9 +366,19 @@ function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
+// A barely tinted page, so the white buttons and composer stand out by their shadows.
+const chatBackground = '#FAFBFA';
+const softShadow = {
+  elevation: 3,
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.08,
+  shadowRadius: 14,
+};
+
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: palette.background,
+    backgroundColor: chatBackground,
     flex: 1,
   },
   flex: {
@@ -400,30 +390,32 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   circle: {
+    ...softShadow,
     alignItems: 'center',
-    backgroundColor: palette.surface,
-    borderColor: palette.border,
+    backgroundColor: palette.white,
     borderRadius: 999,
-    borderWidth: 1,
     height: 48,
     justifyContent: 'center',
     width: 48,
   },
-  title: {
+  titlePill: {
     alignItems: 'center',
+    backgroundColor: palette.emeraldSoft,
+    borderRadius: 999,
     flexDirection: 'row',
-    gap: 4,
-    minHeight: 48,
+    gap: spacing.xs,
+    height: 48,
+    paddingHorizontal: spacing.md,
   },
   titleText: {
-    color: palette.ink,
-    fontSize: 19,
-    fontWeight: '900',
+    color: palette.emerald,
+    fontSize: 16,
+    fontWeight: '800',
   },
   consent: {
     alignItems: 'center',
@@ -453,6 +445,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
+  policyLink: {
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  policyText: {
+    color: palette.emerald,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   primary: {
     alignItems: 'center',
     alignSelf: 'stretch',
@@ -469,15 +470,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
   },
-  welcome: {
-    flexGrow: 1,
-  },
-  hero: {
-    alignItems: 'center',
-    flexGrow: 1,
-    gap: spacing.md,
-    justifyContent: 'center',
-  },
   greeting: {
     color: palette.ink,
     fontSize: 28,
@@ -485,20 +477,9 @@ const styles = StyleSheet.create({
     lineHeight: 35,
     textAlign: 'center',
   },
-  suggestion: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    minHeight: 48,
-  },
-  suggestionText: {
-    color: palette.muted,
-    fontSize: 15,
-    fontWeight: '600',
-  },
   question: {
     alignSelf: 'flex-end',
-    backgroundColor: palette.surfaceMuted,
+    backgroundColor: '#EDF0EE',
     borderRadius: radii.lg,
     maxWidth: '85%',
     paddingHorizontal: spacing.md,
@@ -544,7 +525,7 @@ const styles = StyleSheet.create({
   headerMenu: {
     left: 0,
     position: 'absolute',
-    top: 72,
+    top: 68,
     zIndex: 5,
   },
   actionsMenu: {
@@ -565,53 +546,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   composer: {
-    backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    elevation: 2,
-    marginBottom: spacing.xs,
+    ...softShadow,
+    alignItems: 'flex-end',
+    backgroundColor: palette.white,
+    borderRadius: 30,
+    flexDirection: 'row',
     marginHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    paddingTop: 4,
+    marginVertical: spacing.sm,
+    padding: 6,
   },
   input: {
     color: palette.ink,
+    flex: 1,
     fontSize: 16,
     maxHeight: 120,
-    minHeight: 50,
-    paddingHorizontal: spacing.sm,
+    minHeight: 48,
+    paddingVertical: 12,
   },
   listening: {
     alignItems: 'center',
+    flex: 1,
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: 50,
-    paddingHorizontal: spacing.sm,
+    minHeight: 48,
   },
   listeningText: {
     color: palette.emerald,
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '800',
-  },
-  composerRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
   },
   plainButton: {
     alignItems: 'center',
     height: 48,
     justifyContent: 'center',
-    width: 48,
+    width: 46,
   },
   mainButton: {
     alignItems: 'center',
     backgroundColor: palette.emerald,
-    borderRadius: radii.md,
-    height: 50,
+    borderRadius: 999,
+    height: 46,
     justifyContent: 'center',
-    width: 50,
+    marginBottom: 1,
+    marginLeft: 2,
+    width: 46,
   },
 });

@@ -142,7 +142,7 @@ export default function SubscriptionsScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card tone="soft">
           <Text style={styles.summaryLabel}>Total per month</Text>

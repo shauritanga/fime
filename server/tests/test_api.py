@@ -179,3 +179,9 @@ def test_dates_are_spelled_out_for_the_model():
 
 def test_impossible_dates_are_rejected():
     assert client.post("/v1/chat", json={"today": "2026-02-30", "messages": [user()]}).status_code == 422
+
+
+def test_privacy_policy_is_public():
+    response = client.get("/privacy")
+    assert response.status_code == 200 and "text/html" in response.headers["content-type"]
+    assert "Fime Privacy Policy" in response.text

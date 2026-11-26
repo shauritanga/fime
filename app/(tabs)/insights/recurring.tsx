@@ -110,7 +110,7 @@ export default function RecurringScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {dueCount > 0 ? (
           <Card tone="soft">

@@ -53,7 +53,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <Screen>
+    <Screen edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.homeHeader}>
           <View style={styles.profileRow}>

@@ -11,11 +11,11 @@ from typing import Deque, Dict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app import llm
-from app.config import settings
+from app.config import BASE_DIR, settings
 from app.prompt import SYSTEM_PROMPT, date_context
 from app.schemas import ChatRequest
 
@@ -72,6 +72,12 @@ async def limit_body(request: Request, call_next):
 async def invalid_request(_request: Request, _error: RequestValidationError):
     # The default response would echo the user's data back.
     return JSONResponse({"detail": "That message couldn't be processed. Try starting a new chat."}, status_code=422)
+
+
+@app.get("/privacy")
+def privacy():
+    """The app's privacy policy, linked from its Play Store listing."""
+    return FileResponse(BASE_DIR / "static" / "privacy.html")
 
 
 @app.get("/health")

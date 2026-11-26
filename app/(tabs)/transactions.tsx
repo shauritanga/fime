@@ -143,7 +143,7 @@ export default function TransactionsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen edges={['top', 'left', 'right']}>
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}

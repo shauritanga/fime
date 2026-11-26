@@ -150,7 +150,7 @@ export default function LoansScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.metrics}>
           <View style={styles.metric}>

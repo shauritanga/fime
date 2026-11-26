@@ -38,7 +38,7 @@ const menuItems = [
 
 export default function InsightsMenuScreen() {
   return (
-    <Screen>
+    <Screen edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View>
           <Title>More</Title>

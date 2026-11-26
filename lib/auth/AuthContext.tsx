@@ -39,6 +39,7 @@ type UpdateProfileInput = {
 };
 
 type AuthContextValue = {
+  deleteAccount: () => Promise<void>;
   isLoading: boolean;
   isSignedIn: boolean;
   profile: UserProfile | null;
@@ -142,6 +143,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setIsSignedIn(false);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await Promise.all([PROFILE_KEY, CREDENTIAL_KEY, SESSION_KEY].map(deleteStorage));
+    setIsSignedIn(false);
+    setProfile(null);
+  }, []);
+
   const updateProfile = useCallback(
     async ({ imageUri, name, phoneNumber }: UpdateProfileInput) => {
       if (!profile) {
@@ -168,6 +175,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(
     () => ({
+      deleteAccount,
       isLoading,
       isSignedIn,
       profile,
@@ -176,7 +184,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       updateProfile,
     }),
-    [isLoading, isSignedIn, profile, register, signIn, signOut, updateProfile]
+    [deleteAccount, isLoading, isSignedIn, profile, register, signIn, signOut, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

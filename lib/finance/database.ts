@@ -154,6 +154,17 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   }
 }
 
+/** Removes everything the user has recorded, and their choice to use the assistant. */
+export async function eraseAllData(db: SQLiteDatabase) {
+  await db.withTransactionAsync(async () => {
+    await clearUserData(db);
+    // The one-time cleanup flag stays: without it, the next start would clear new data.
+    await db.runAsync("DELETE FROM app_meta WHERE key LIKE 'assistant-consent%'");
+  });
+  // Rewrite the file so deleted rows don't linger inside it.
+  await db.execAsync('VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');
+}
+
 export async function getSetting(db: SQLiteDatabase, key: string) {
   const row = await db.getFirstAsync<MetaRow>('SELECT value FROM app_meta WHERE key = ?', key);
   return row?.value ?? null;
@@ -291,6 +302,11 @@ export async function carryBudgetsForward(db: SQLiteDatabase, period: string) {
     period,
     period
   );
+}
+
+/** The budgets stored for a month, without carrying any forward (for looking back). */
+export async function listSavedBudgets(db: SQLiteDatabase, period: string) {
+  return db.getAllAsync<Budget>('SELECT * FROM budgets WHERE period = ? ORDER BY limitAmount DESC', period);
 }
 
 export async function listBudgets(db: SQLiteDatabase, period = currentPeriod()) {

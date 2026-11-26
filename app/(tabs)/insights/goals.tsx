@@ -41,7 +41,7 @@ export default function GoalsScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {goals.length === 0 ? (
           <EmptyState title="No savings goals yet" message="Tap + to set a target, such as school fees or a trip." />

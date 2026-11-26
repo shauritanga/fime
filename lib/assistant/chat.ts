@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { todayISO } from '../finance/format';
+import { formatMoney, todayISO } from '../finance/format';
 import { runTool } from './tools';
 import type { ToolCall, WireMessage } from './types';
 
@@ -50,6 +50,13 @@ async function post(messages: WireMessage[], signal: AbortSignal): Promise<Serve
   }
 }
 
+function describeChange(result: unknown) {
+  const change = result as { saved?: boolean; category?: string; limit?: number } | null;
+  return change?.saved && change.category && change.limit
+    ? `Saved: **${change.category}** budget set to **${formatMoney(change.limit)}** for this month.`
+    : '';
+}
+
 /** Asks one question, running whichever data tools the model requests until it replies. */
 export async function askAssistant(
   db: SQLiteDatabase,
@@ -69,8 +76,20 @@ export async function askAssistant(
     { role: 'user', content: question },
   ];
 
+  // Changes already saved while answering this question.
+  const changes: string[] = [];
+
   for (let request = 0; request < MAX_REQUESTS; request += 1) {
-    const reply = await post(messages, signal);
+    let reply: ServerReply;
+    try {
+      reply = await post(messages, signal);
+    } catch (error) {
+      // Never report a failure without saying that something was saved.
+      if (changes.length) {
+        return { answer: `${changes.join('\n')}\n\nI couldn't write a fuller reply.` };
+      }
+      throw error;
+    }
     if (!reply.tool_calls?.length) {
       return { answer: reply.content };
     }
@@ -82,9 +101,18 @@ export async function askAssistant(
       provider_data: reply.provider_data ?? undefined,
     });
     for (const call of reply.tool_calls) {
+      // "New chat" cancels the question, so nothing more may be changed for it.
+      if (signal.aborted) {
+        throw new AssistantError('Cancelled.');
+      }
       let content: string;
       try {
-        content = JSON.stringify(await runTool(db, call.name, call.arguments ?? {}));
+        const result = await runTool(db, call.name, call.arguments ?? {});
+        const change = describeChange(result);
+        if (change) {
+          changes.push(change);
+        }
+        content = JSON.stringify(result);
       } catch (error) {
         console.warn(`Assistant tool ${call.name} failed`, error);
         content = JSON.stringify({ error: 'The data could not be read.' });

@@ -10,10 +10,16 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Card, Muted, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { newChat } from '@/lib/assistant/store';
+import { eraseAllData } from '@/lib/finance/database';
+import { openPrivacyPolicy } from '@/lib/privacy';
+import { File } from 'expo-file-system';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useDailyReminders } from '@/lib/notifications/DailyRemindersContext';
 
 export default function ProfileScreen() {
-  const { profile, signOut, updateProfile } = useAuth();
+  const db = useSQLiteContext();
+  const { profile, deleteAccount, signOut, updateProfile } = useAuth();
   const {
     disableReminders,
     enableReminders,
@@ -97,6 +103,58 @@ export default function ProfileScreen() {
     }
   }
 
+  function showPrivacy() {
+    Alert.alert(
+      'Privacy',
+      'Your profile and finance records are stored on this phone. If you turn on the assistant, your questions, voice recordings and the records needed to answer them are sent to the Fime server and an AI service.',
+      [
+        { style: 'cancel', text: 'Close' },
+        { onPress: openPrivacyPolicy, text: 'Read policy' },
+      ]
+    );
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete account and data?',
+      'This removes your account and every record in Fime from this phone. Export your transactions first if you want to keep them.',
+      [
+        { style: 'cancel', text: 'Cancel' },
+        {
+          onPress: () =>
+            Alert.alert('Are you sure?', 'This cannot be undone.', [
+              { style: 'cancel', text: 'Keep my data' },
+              { onPress: removeEverything, style: 'destructive', text: 'Delete everything' },
+            ]),
+          style: 'destructive',
+          text: 'Continue',
+        },
+      ]
+    );
+  }
+
+  async function removeEverything() {
+    const photo = profile?.imageUri;
+    try {
+      // Records go first: if this fails, the account stays so it can be tried again.
+      await eraseAllData(db);
+      await disableReminders().catch((cause) => console.warn('Unable to stop reminders', cause));
+      newChat();
+      if (photo) {
+        try {
+          new File(photo).delete();
+        } catch (cause) {
+          console.warn('Unable to delete the profile photo copy', cause);
+        }
+      }
+      await deleteAccount();
+      router.replace('/register');
+    } catch (cause) {
+      console.warn('Unable to delete the account', cause);
+      Alert.alert('Could not delete', 'Something went wrong. Please try again.');
+    }
+  }
+
   function confirmLogout() {
     Alert.alert('Log out', 'You will need your phone number and password to open Fime again.', [
       { style: 'cancel', text: 'Cancel' },
@@ -112,7 +170,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Screen>
+    <Screen edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
@@ -185,7 +243,7 @@ export default function ProfileScreen() {
             <ActionRow
               icon={{ ios: 'lock.shield', android: 'lock', web: 'lock' }}
               label="Privacy"
-              onPress={() => Alert.alert('Privacy', 'Your Fime profile and finance data stay on this device.')}
+              onPress={showPrivacy}
             />
             <ActionRow
               icon={{ ios: 'questionmark.circle', android: 'help_outline', web: 'help_outline' }}
@@ -197,6 +255,12 @@ export default function ProfileScreen() {
               icon={{ ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' }}
               label="Log out"
               onPress={confirmLogout}
+            />
+            <ActionRow
+              destructive
+              icon={{ ios: 'trash', android: 'delete_forever', web: 'delete_forever' }}
+              label="Delete account and data"
+              onPress={confirmDeleteAccount}
             />
           </View>
         </Card>

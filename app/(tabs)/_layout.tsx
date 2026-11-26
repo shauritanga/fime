@@ -1,13 +1,19 @@
 import { SymbolView } from 'expo-symbols';
 import { Redirect, router, Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette } from '@/constants/theme';
 import { newChat } from '@/lib/assistant/store';
 import { useAuth } from '@/lib/auth/AuthContext';
 
+// Room for the raised assistant button; the bottom gap sits inside this height.
+const TAB_BAR_HEIGHT = 74;
+const TAB_BAR_GAP = 8;
+
 export default function TabLayout() {
   const { isLoading, isSignedIn } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return null;
@@ -30,9 +36,10 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: palette.white,
           borderTopColor: palette.border,
-          minHeight: 62,
-          paddingBottom: 8,
-          paddingTop: 6,
+          // Clear the phone's gesture area, with a little breathing room above it.
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom + TAB_BAR_GAP,
+          paddingTop: 8,
         },
       }}>
       <Tabs.Screen
@@ -97,9 +104,9 @@ export default function TabLayout() {
       {/* Opened from the + buttons, so it has no tab of its own. */}
       <Tabs.Screen name="add" options={{ href: null }} />
       <Tabs.Screen
-        name="budgets"
+        name="analytics"
         options={{
-          title: 'Insights',
+          title: 'Analytics',
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{

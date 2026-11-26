@@ -1,9 +1,11 @@
-// The "retrieval" half of the assistant: each tool reads the phone's database and does the sums here,
-// so the model never has to add numbers and only receives what the question needs.
+// What the assistant can do on the phone. Each tool reads the database and does the sums here, so the
+// model never has to add numbers and only receives what the question needs. `set_budget` is the one
+// tool that changes data.
 // The matching tool descriptions are in server/app/prompt.py.
 import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   listBudgetProgress,
+  listBudgets,
   listCategories,
   listLoans,
   listRecurringTransactions,
@@ -11,6 +13,7 @@ import {
   listSubscriptions,
   listTransactions,
   listTransactionsByPeriod,
+  upsertBudget,
 } from '../finance/database';
 import { currentPeriod, isValidISODate, shiftPeriod, todayISO } from '../finance/format';
 import type { Category, Transaction } from '../finance/types';
@@ -20,6 +23,7 @@ type Categories = Map<string, Category>;
 
 const MAX_LISTED = 15;
 const MAX_DAYS_LISTED = 62;
+const MAX_BUDGET = 1_000_000_000_000;
 
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -251,6 +255,37 @@ async function budgetStatus(db: SQLiteDatabase, args: Args) {
   return { month, budgets: items };
 }
 
+/** Creates or replaces this month's limit for one expense category. It carries into later months. */
+async function setBudget(db: SQLiteDatabase, args: Args) {
+  const categories = await categoryLookup(db);
+  const spendable = new Map([...categories].filter(([, item]) => item.type === 'expense'));
+  const category = findCategory(spendable, text(args.category));
+  if (!category) {
+    return { saved: false, ...unknownCategory(spendable) };
+  }
+  const raw = typeof args.amount === 'string' ? args.amount.replace(/,/g, '') : args.amount;
+  const amount = Math.round(Number(raw));
+  if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_BUDGET) {
+    return { saved: false, error: 'The amount must be a number of shillings above zero.' };
+  }
+
+  const month = currentPeriod();
+  const previous = (await listBudgets(db, month)).find((item) => item.categoryId === category.id);
+  await upsertBudget(db, { categoryId: category.id, limitAmount: amount, period: month });
+  const progress = (await listBudgetProgress(db, month)).find((item) => item.categoryId === category.id);
+  const spent = progress?.spent ?? 0;
+
+  return {
+    saved: true,
+    category: category.name,
+    month,
+    limit: amount,
+    previous_limit: previous?.limitAmount ?? null,
+    spent_this_month: spent,
+    left: amount - spent,
+  };
+}
+
 async function monthlyTrend(db: SQLiteDatabase, args: Args) {
   const requested = Math.round(Number(args.months));
   const count = Number.isFinite(requested) ? Math.min(12, Math.max(2, requested)) : 6;
@@ -324,6 +359,7 @@ const tools: Record<string, (db: SQLiteDatabase, args: Args) => Promise<unknown>
   spending_summary: spendingSummary,
   find_transactions: findTransactions,
   budget_status: budgetStatus,
+  set_budget: setBudget,
   monthly_trend: monthlyTrend,
   upcoming_payments: upcomingPayments,
   savings_goals: savingsGoals,

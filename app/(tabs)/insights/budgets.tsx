@@ -34,7 +34,7 @@ export default function MoreBudgetsScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View>
           <Text style={styles.sectionTitle}>{formatPeriod(currentPeriod())}</Text>

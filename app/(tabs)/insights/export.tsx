@@ -31,7 +31,7 @@ export default function ExportScreen() {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']}>
+    <Screen edges={['left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card tone="soft">
           <Text style={styles.count}>{transactions.length}</Text>

@@ -73,7 +73,7 @@ export default function AddScreen() {
   }
 
   return (
-    <Screen>
+    <Screen edges={['top', 'left', 'right']}>
       <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
         <View>
           <Eyebrow>Quick add</Eyebrow>
