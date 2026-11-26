@@ -44,7 +44,7 @@ export default function LoginScreen() {
         bottomOffset={24}>
         <View style={styles.hero}>
             <View style={styles.brandMark}>
-              <Image source={require('../../assets/images/fime_logo.png')} style={styles.brandMarkImage} />
+              <Image source={require('../../assets/images/fime_logo_small.png')} style={styles.brandMarkImage} />
             </View>
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to continue tracking your money in Fime.</Text>

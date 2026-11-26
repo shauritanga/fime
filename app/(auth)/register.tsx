@@ -40,7 +40,7 @@ export default function RegisterScreen() {
         bottomOffset={24}>
         <View style={styles.hero}>
             <View style={styles.brandMark}>
-              <Image source={require('../../assets/images/fime_logo.png')} style={styles.brandMarkImage} />
+              <Image source={require('../../assets/images/fime_logo_small.png')} style={styles.brandMarkImage} />
             </View>
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.subtitle}>Register with your name, phone number and password.</Text>

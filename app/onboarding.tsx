@@ -63,7 +63,7 @@ export default function OnboardingScreen() {
       <View style={styles.container}>
         <View style={styles.topRow}>
           <View style={styles.brandMark}>
-            <Image source={require('../assets/images/fime_logo.png')} style={styles.brandImage} />
+            <Image source={require('../assets/images/fime_logo_small.png')} style={styles.brandImage} />
           </View>
           <Pressable onPress={() => finish('/login')} style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}>
             <Text style={styles.skipText}>Skip</Text>
