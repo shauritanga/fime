@@ -269,8 +269,11 @@ async function upcomingPayments(db: SQLiteDatabase): Promise<ToolOutput> {
     })),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
+  const totalOwed = loans.reduce((sum, loan) => sum + (loan.type === 'money' ? loan.remainingAmount : 0), 0);
+
   return {
     data: {
+      total_money_owed_on_loans: totalOwed,
       subscriptions: subscriptions.map((item) => ({
         name: item.name,
         monthly_amount: item.amount,
@@ -285,7 +288,13 @@ async function upcomingPayments(db: SQLiteDatabase): Promise<ToolOutput> {
       })),
       unpaid_loans: loanItems,
     },
-    card: rows.length ? { title: 'Coming up', rows: rows.slice(0, 8) } : undefined,
+    card: rows.length
+      ? {
+          title: 'Coming up',
+          caption: totalOwed > 0 ? `Still owed on loans: ${formatMoney(totalOwed)}` : undefined,
+          rows: rows.slice(0, 8),
+        }
+      : undefined,
   };
 }
 

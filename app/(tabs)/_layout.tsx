@@ -72,7 +72,7 @@ export default function TabLayout() {
           title: 'Assistant',
           tabBarAccessibilityLabel: 'Money assistant',
           tabBarHideOnKeyboard: true,
-          tabBarShowLabel: false,
+          tabBarLabel: () => null,
           tabBarIcon: () => (
             <View style={styles.assistantButton}>
               <SymbolView

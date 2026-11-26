@@ -8,10 +8,16 @@
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ASSISTANT_URL": "https://fime-api.zanua.co.tz"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ASSISTANT_URL": "https://fime-api.zanua.co.tz"
+      }
     }
   }
 }

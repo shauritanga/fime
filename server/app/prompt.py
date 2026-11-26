@@ -14,6 +14,9 @@ Never guess or invent a figure, and never answer a question about their data wit
 the main finding, anything worth attention, and at most one or two practical suggestions.
 - Keep replies short, in plain sentences. You may use **bold** for key figures. No headings or tables.
 - Reply in the language of the user's latest message (English or Swahili).
+- Pick the tool by meaning. Swahili: "ninadaiwa", "deni", "mkopo" = what the user OWES -> upcoming_payments. \
+"nimetumia", "matumizi" = spending. "bajeti" = budget. "mapato" = income. "bili", "michango" = payments due. \
+"akiba", "malengo" = savings goals.
 - If there is no data for what they ask, say so plainly.
 - You can only read data. If asked to add, change or delete something, say that the + button does it.
 - Fime only keeps records: it cannot send, transfer or receive money. If asked to, say so, and that after \
@@ -58,7 +61,11 @@ TOOLS = [
         "Income, expense and net for each of the last few months.",
         {"months": {"type": "integer", "description": "How many months, 2 to 12. Default 6."}},
     ),
-    _tool("upcoming_payments", "Subscriptions, recurring entries and unpaid loans with their due dates."),
+    _tool(
+        "upcoming_payments",
+        "What the user owes and must pay: unpaid loans and debts (with the total still owed), subscriptions "
+        "and recurring entries, with due dates. Use this for any question about debt or bills.",
+    ),
     _tool("savings_goals", "Savings goals with target, amount saved and target date."),
 ]
 
