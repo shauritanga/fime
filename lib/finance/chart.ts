@@ -1,3 +1,4 @@
+import { toISODate } from './format';
 import type { ExpenseChartBar, ExpenseChartRange, Transaction, TrendChartPoint } from './types';
 
 const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -150,8 +151,4 @@ function sumIntoBuckets(
   }
 
   return buckets.map(({ label, total }) => ({ label, total }));
-}
-
-function toISODate(date: Date) {
-  return date.toISOString().slice(0, 10);
 }

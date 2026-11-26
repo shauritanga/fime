@@ -6,7 +6,7 @@ import { TransactionCard } from '@/components/TransactionCard';
 import { Card, financeStyles, Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { formatMoney, formatShortDate } from '@/lib/finance/format';
+import { formatMoney, formatShortDate, toISODate } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
@@ -191,10 +191,6 @@ function buildDateStrip(today: Date) {
       number: date.getDate(),
     };
   });
-}
-
-function toISODate(date: Date) {
-  return date.toISOString().slice(0, 10);
 }
 
 const styles = StyleSheet.create({

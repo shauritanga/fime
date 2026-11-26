@@ -1,21 +1,14 @@
 import { Card, Eyebrow, financeStyles, Muted, Screen, Title } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { BudgetRequiredError } from '@/lib/finance/database';
-import { todayISO } from '@/lib/finance/format';
+import { toISODate, todayISO } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import type { TransactionType } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-
-function toISODate(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function AddScreen() {
   const { addTransaction, expenseCategories, incomeCategories } = useFinance();
@@ -35,11 +28,8 @@ export default function AddScreen() {
     [dateValue]
   );
 
-  function onChangeDate(event: DateTimePickerEvent, selected?: Date) {
+  function onSelectDate(_event: unknown, selected: Date) {
     setShowDatePicker(Platform.OS === 'ios');
-    if (event.type === 'dismissed' || !selected) {
-      return;
-    }
     setDate(toISODate(selected));
   }
 
@@ -149,7 +139,13 @@ export default function AddScreen() {
             <Text style={styles.dateText}>{dateLabel}</Text>
           </Pressable>
           {showDatePicker ? (
-            <DateTimePicker value={dateValue} mode="date" onChange={onChangeDate} />
+            <DateTimePicker
+              maximumDate={new Date()}
+              mode="date"
+              onDismiss={() => setShowDatePicker(false)}
+              onValueChange={onSelectDate}
+              value={dateValue}
+            />
           ) : null}
 
           <Pressable onPress={submit} style={styles.submit}>

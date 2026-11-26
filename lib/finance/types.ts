@@ -18,6 +18,13 @@ export type Transaction = {
 
 export type TransactionInput = Omit<Transaction, 'id'>;
 
+export type TransactionSearch = {
+  categoryId?: string;
+  limit: number;
+  query: string;
+  type?: TransactionType;
+};
+
 export type Budget = {
   id: string;
   categoryId: string;

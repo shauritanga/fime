@@ -1,26 +1,47 @@
 import { palette, radii, spacing } from '@/constants/theme';
-import { formatMoney, formatShortDate } from '@/lib/finance/format';
+import { formatShortDate, formatSignedMoney } from '@/lib/finance/format';
 import type { Category, Transaction } from '@/lib/finance/types';
 import { SymbolView } from 'expo-symbols';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function TransactionCard({
   category,
+  dateStyle = 'short',
   grouped = false,
+  onPress,
   showDivider = false,
   transaction,
 }: {
   category?: Category;
+  dateStyle?: 'short' | 'full' | 'none';
   grouped?: boolean;
+  onPress?: () => void;
   showDivider?: boolean;
   transaction: Transaction;
 }) {
   const icon = getCategoryIcon(transaction.categoryId);
   const title =
     transaction.note.trim() || getTransactionFallbackTitle(transaction.categoryId, transaction.type);
+  const isIncome = transaction.type === 'income';
+  const amount = formatSignedMoney(isIncome ? transaction.amount : -transaction.amount);
+  const categoryName = category?.name ?? 'Category';
+  const dateText =
+    dateStyle === 'full'
+      ? `${formatShortDate(transaction.date)} ${transaction.date.slice(0, 4)}`
+      : formatShortDate(transaction.date);
 
   return (
-    <View style={[styles.transactionCard, grouped && styles.groupedCard, showDivider && styles.dividedCard]}>
+    <Pressable
+      accessibilityLabel={`${title}, ${categoryName}, ${isIncome ? 'income' : 'expense'} ${amount}`}
+      accessibilityRole={onPress ? 'button' : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.transactionCard,
+        grouped && styles.groupedCard,
+        showDivider && styles.dividedCard,
+        pressed && styles.pressed,
+      ]}>
       <View style={styles.transactionIcon}>
         <SymbolView name={icon} tintColor={palette.emerald} size={25} />
       </View>
@@ -29,18 +50,19 @@ export function TransactionCard({
           {title}
         </Text>
         <View style={styles.transactionMetaRow}>
-          <Text style={styles.categoryMeta}>{category?.name ?? 'Category'}</Text>
-          <Text style={styles.transactionMeta}>·</Text>
-          <Text style={styles.transactionMeta}>{formatShortDate(transaction.date)}</Text>
+          <Text style={styles.categoryMeta}>{categoryName}</Text>
+          {dateStyle !== 'none' ? (
+            <>
+              <Text style={styles.transactionMeta}>·</Text>
+              <Text style={styles.transactionMeta}>{dateText}</Text>
+            </>
+          ) : null}
         </View>
       </View>
       <View style={styles.transactionAmountBlock}>
-        <Text style={styles.transactionAmount}>{formatMoney(transaction.amount)}</Text>
-        <Text style={transaction.type === 'income' ? styles.creditLabel : styles.debitLabel}>
-          {transaction.type === 'income' ? 'Credit' : 'Debit'}
-        </Text>
+        <Text style={[styles.transactionAmount, isIncome ? styles.income : styles.expense]}>{amount}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -115,12 +137,10 @@ const styles = StyleSheet.create({
   },
   transactionAmountBlock: {
     alignItems: 'flex-end',
-    gap: 4,
     justifyContent: 'center',
     minWidth: 88,
   },
   transactionAmount: {
-    color: palette.ink,
     fontSize: 15,
     fontWeight: '900',
     textAlign: 'right',
@@ -142,14 +162,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  creditLabel: {
+  income: {
     color: palette.emerald,
-    fontSize: 12,
-    fontWeight: '900',
   },
-  debitLabel: {
+  expense: {
     color: palette.coral,
-    fontSize: 12,
-    fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

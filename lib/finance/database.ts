@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { defaultCategories } from './seed';
-import { currentPeriod, periodFromISODate, todayISO } from './format';
+import { currentPeriod, periodFromISODate, shiftPeriod, toISODate, todayISO } from './format';
 import type {
   Budget,
   BudgetInput,
@@ -20,6 +20,7 @@ import type {
   SubscriptionInput,
   Transaction,
   TransactionInput,
+  TransactionSearch,
 } from './types';
 
 type SumRow = { total: number | null };
@@ -58,6 +59,8 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       note TEXT NOT NULL,
       date TEXT NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date);
 
     CREATE TABLE IF NOT EXISTS budgets (
       id TEXT PRIMARY KEY NOT NULL,
@@ -152,10 +155,93 @@ export async function listTransactions(db: SQLiteDatabase) {
 }
 
 export async function listTransactionsByPeriod(db: SQLiteDatabase, period = currentPeriod()) {
+  // A range comparison (rather than substr) lets SQLite use the date index.
   return db.getAllAsync<Transaction>(
-    'SELECT * FROM transactions WHERE substr(date, 1, 7) = ? ORDER BY date DESC, id DESC',
-    period
+    'SELECT * FROM transactions WHERE date >= ? AND date < ? ORDER BY date DESC, id DESC',
+    `${period}-01`,
+    `${shiftPeriod(period, 1)}-01`
   );
+}
+
+export async function listTransactionPeriods(db: SQLiteDatabase) {
+  const rows = await db.getAllAsync<{ period: string }>(
+    'SELECT DISTINCT substr(date, 1, 7) as period FROM transactions ORDER BY period ASC'
+  );
+  return rows.map((row) => row.period);
+}
+
+export async function searchTransactions(
+  db: SQLiteDatabase,
+  { categoryId, limit, query, type }: TransactionSearch
+) {
+  const pattern = `%${query.trim().replace(/[\\%_]/g, '\\$&')}%`;
+  const matches = ["t.note LIKE ? ESCAPE '\\'", "c.name LIKE ? ESCAPE '\\'"];
+  const params: Array<string | number> = [pattern, pattern];
+
+  const digits = query.replace(/[,\s]/g, '');
+  if (/^\d+$/.test(digits)) {
+    matches.push('CAST(CAST(t.amount AS INTEGER) AS TEXT) LIKE ?');
+    params.push(`%${digits}%`);
+  }
+
+  const conditions = [`(${matches.join(' OR ')})`];
+  if (type) {
+    conditions.push('t.type = ?');
+    params.push(type);
+  }
+  if (categoryId) {
+    conditions.push('t.categoryId = ?');
+    params.push(categoryId);
+  }
+
+  return db.getAllAsync<Transaction>(
+    `SELECT t.* FROM transactions t
+     LEFT JOIN categories c ON c.id = t.categoryId
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY t.date DESC, t.id DESC
+     LIMIT ?`,
+    ...params,
+    limit
+  );
+}
+
+export async function isLoanTransaction(db: SQLiteDatabase, transactionId: string) {
+  const row = await db.getFirstAsync(
+    'SELECT id FROM loan_activities WHERE transactionId = ?',
+    transactionId
+  );
+  return row !== null;
+}
+
+export async function updateTransaction(db: SQLiteDatabase, transaction: Transaction) {
+  const existing = await db.getFirstAsync<Transaction>(
+    'SELECT * FROM transactions WHERE id = ?',
+    transaction.id
+  );
+  if (!existing) {
+    throw new Error('Transaction not found');
+  }
+  await ensureNotLoanTransaction(db, transaction.id);
+
+  const movesBudget =
+    existing.categoryId !== transaction.categoryId ||
+    periodFromISODate(existing.date) !== periodFromISODate(transaction.date);
+  if (transaction.type === 'expense' && movesBudget) {
+    await ensureExpenseBudget(db, transaction.categoryId, transaction.date);
+  }
+
+  await insertTransaction(db, transaction);
+}
+
+export async function deleteTransaction(db: SQLiteDatabase, transactionId: string) {
+  await ensureNotLoanTransaction(db, transactionId);
+  await db.runAsync('DELETE FROM transactions WHERE id = ?', transactionId);
+}
+
+async function ensureNotLoanTransaction(db: SQLiteDatabase, transactionId: string) {
+  if (await isLoanTransaction(db, transactionId)) {
+    throw new Error('This entry belongs to a loan and cannot be changed here.');
+  }
 }
 
 export async function createTransaction(db: SQLiteDatabase, input: TransactionInput) {
@@ -294,10 +380,10 @@ export async function createRecurringTransaction(
 }
 
 export async function postDueRecurringTransactions(db: SQLiteDatabase, today = new Date()) {
-  const todayISO = today.toISOString().slice(0, 10);
+  const dueBy = toISODate(today);
   const dueItems = await db.getAllAsync<RecurringTransaction>(
     'SELECT * FROM recurring_transactions WHERE nextDate <= ? ORDER BY nextDate ASC',
-    todayISO
+    dueBy
   );
   let posted = 0;
 
@@ -649,5 +735,5 @@ function advanceDate(value: string, frequency: 'weekly' | 'monthly') {
     date.setMonth(date.getMonth() + 1);
   }
 
-  return date.toISOString().slice(0, 10);
+  return toISODate(date);
 }
