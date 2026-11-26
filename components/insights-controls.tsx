@@ -49,10 +49,6 @@ export function ActionButton({
   );
 }
 
-export function csv(value: string) {
-  return `"${value.replaceAll('"', '""')}"`;
-}
-
 export const insightFormStyles = StyleSheet.create({
   input: {
     backgroundColor: palette.background,

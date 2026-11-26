@@ -31,6 +31,23 @@ CASES = [
     ("Weka bajeti ya usafiri elfu 40", {"set_budget"}, {"category": "transport", "amount": 40000}),
     ("Create a transport budget", set()),
     ("How much is my transport budget?", {"budget_status"}),
+    # Doing things: the right action, only when asked and when enough is known.
+    ("I spent 5000 on lunch", {"add_transaction"}, {"type": "expense", "category": "food", "amount": 5000}),
+    ("Nimelipa nauli 2000", {"add_transaction"}, {"type": "expense", "category": "transport", "amount": 2000}),
+    ("I received 500,000 salary today", {"add_transaction"}, {"type": "income", "category": "salary", "amount": 500000}),
+    ("Create a goal for school fees of 2 million by 2027-03-31", {"add_savings_goal"}, {"target": 2000000}),
+    ("Add my internet subscription, 50000 per month, category utilities", {"add_subscription"}, {"amount": 50000}),
+    ("Rent of 300000 repeats monthly under home, add it", {"add_recurring"}, {"amount": 300000, "frequency": "monthly"}),
+    ("I borrowed 80000 from Asha for bike repair, due 2026-12-20", {"add_loan"}, {"amount": 80000, "kind": "money"}),
+    ("Add the due recurring entries", {"post_due_recurring"}),
+    ("Turn off the daily reminders", {"set_reminders"}, {"enabled": False}),
+    ("Export my transactions", {"export_transactions"}),
+    ("Undo that", {"undo_last"}),
+    ("Delete the snack I added today", {"find_transactions", "period_totals"}),
+    ("Mark my internet subscription as paid", {"upcoming_payments"}),
+    ("Log me out", {"open_screen"}, {"screen": "profile"}),
+    ("I spent money on lunch", set()),
+    ("Create a savings goal for a laptop", set()),
     # Dates (today is Thursday 2026-11-26): the right tool AND the right days.
     ("What is my spend today", {"period_totals"}, ("2026-11-26", "2026-11-26")),
     ("What is my daily expense from yesterday", {"period_totals"}, ("2026-11-25", "2026-11-25")),
@@ -45,7 +62,8 @@ CASES = [
 def first_tools(base, question):
     body = json.dumps({"today": "2026-11-26", "messages": [{"role": "user", "content": question}]}).encode()
     request = urllib.request.Request(f"{base}/v1/chat", body, {"Content-Type": "application/json"})
-    for _ in range(4):
+    # Free tiers allow only a few requests a minute, so be patient.
+    for _ in range(12):
         try:
             with urllib.request.urlopen(request, timeout=90) as response:
                 return json.load(response)["tool_calls"]
@@ -58,6 +76,7 @@ def first_tools(base, question):
 
 def main():
     base = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8190").rstrip("/")
+    pause = float(sys.argv[2]) if len(sys.argv) > 2 else 4
     passed = 0
     for question, expected, *dates in CASES:
         calls = first_tools(base, question)
@@ -66,15 +85,18 @@ def main():
         asked = None
         if dates and ok and isinstance(dates[0], dict):
             arguments = calls[0]["arguments"]
-            asked = (str(arguments.get("category", "")).lower(), arguments.get("amount"))
-            ok = asked == (dates[0]["category"], dates[0]["amount"])
+            asked = {
+                key: value.lower() if isinstance(value := arguments.get(key), str) else value for key in dates[0]
+            }
+            ok = asked == dates[0]
         elif dates and ok:
             arguments = calls[0]["arguments"]
             asked = (arguments.get("from"), arguments.get("to") or arguments.get("from"))
             ok = asked == dates[0]
         passed += ok
-        print("PASS" if ok else "FAIL", question, "->", called or "no tool", asked or "")
-        time.sleep(4)  # stay within the server's and the free tier's limits
+        print("PASS" if ok else "FAIL", question, "->", called or "no tool", asked or "", flush=True)
+        print(end="", flush=True)
+        time.sleep(pause)  # stay within the server's and the provider's limits
     print(f"{passed}/{len(CASES)} passed")
     sys.exit(0 if passed == len(CASES) else 1)
 

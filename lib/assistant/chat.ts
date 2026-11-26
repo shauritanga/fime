@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { formatMoney, todayISO } from '../finance/format';
+import { todayISO } from '../finance/format';
+import { isAction, runAction, type AppBridge, type Change, type PendingAction, type Screen } from './actions';
 import { runTool } from './tools';
 import type { ToolCall, WireMessage } from './types';
 
@@ -50,20 +51,31 @@ async function post(messages: WireMessage[], signal: AbortSignal): Promise<Serve
   }
 }
 
-function describeChange(result: unknown) {
-  const change = result as { saved?: boolean; category?: string; limit?: number } | null;
-  return change?.saved && change.category && change.limit
-    ? `Saved: **${change.category}** budget set to **${formatMoney(change.limit)}** for this month.`
-    : '';
-}
+export type Reply = {
+  answer: string;
+  /** What was saved, in the app's own words. */
+  saved: string[];
+  /** Changes waiting for the user to tap Confirm. */
+  pending: PendingAction[];
+  screens: Screen[];
+};
 
-/** Asks one question, running whichever data tools the model requests until it replies. */
+export type Abilities = {
+  app: AppBridge;
+  /** Changes made in this chat, newest last. */
+  undo: Change[];
+};
+
+const MAX_CHANGES = 10;
+
+/** Asks one question, running whichever tools the model requests until it replies. */
 export async function askAssistant(
   db: SQLiteDatabase,
   question: string,
   history: PastTurn[],
-  signal: AbortSignal
-): Promise<{ answer: string }> {
+  signal: AbortSignal,
+  { app, undo }: Abilities
+): Promise<Reply> {
   if (!assistantUrl) {
     throw new AssistantError('The assistant is not set up in this version yet.');
   }
@@ -76,22 +88,24 @@ export async function askAssistant(
     { role: 'user', content: question },
   ];
 
-  // Changes already saved while answering this question.
-  const changes: string[] = [];
+  const done: Omit<Reply, 'answer'> = { saved: [], pending: [], screens: [] };
+  // If a model repeats a change while answering one question, it is not saved twice.
+  const made = new Map<string, string>();
+  // Never report a failure without saying that something was saved or is waiting.
+  const partial = (): Reply => ({ answer: "I couldn't write a fuller reply.", ...done });
 
   for (let request = 0; request < MAX_REQUESTS; request += 1) {
     let reply: ServerReply;
     try {
       reply = await post(messages, signal);
     } catch (error) {
-      // Never report a failure without saying that something was saved.
-      if (changes.length) {
-        return { answer: `${changes.join('\n')}\n\nI couldn't write a fuller reply.` };
+      if (done.saved.length || done.pending.length) {
+        return partial();
       }
       throw error;
     }
     if (!reply.tool_calls?.length) {
-      return { answer: reply.content };
+      return { answer: reply.content, ...done };
     }
 
     messages.push({
@@ -107,19 +121,47 @@ export async function askAssistant(
       }
       let content: string;
       try {
-        const result = await runTool(db, call.name, call.arguments ?? {});
-        const change = describeChange(result);
-        if (change) {
-          changes.push(change);
+        const args = call.arguments ?? {};
+        if (isAction(call.name)) {
+          const key = `${call.name}:${JSON.stringify(args)}`;
+          const earlier = made.get(key);
+          if (earlier) {
+            content = earlier;
+          } else if (made.size >= MAX_CHANGES) {
+            content = JSON.stringify({ saved: false, error: 'Too many changes at once. Ask the user to continue.' });
+          } else {
+            const outcome = await runAction({ db, app, undo }, call.name, args);
+            for (const change of outcome.changes ?? []) {
+              done.saved.push(change.summary);
+              if (change.undo) {
+                undo.push(change);
+              }
+            }
+            if (outcome.pending) {
+              done.pending.push(outcome.pending);
+            }
+            if (outcome.screen) {
+              done.screens.push(outcome.screen);
+            }
+            content = JSON.stringify(outcome.data);
+            // Only successful work is remembered, so a corrected retry still runs.
+            if (outcome.changes || outcome.pending) {
+              made.set(key, content);
+            }
+          }
+        } else {
+          content = JSON.stringify(await runTool(db, call.name, args));
         }
-        content = JSON.stringify(result);
       } catch (error) {
         console.warn(`Assistant tool ${call.name} failed`, error);
-        content = JSON.stringify({ error: 'The data could not be read.' });
+        content = JSON.stringify({ error: 'That did not work. Nothing was changed.' });
       }
       messages.push({ role: 'tool', tool_call_id: call.id, name: call.name, content: content.slice(0, 16000) });
     }
   }
 
+  if (done.saved.length || done.pending.length) {
+    return partial();
+  }
   throw new AssistantError("The assistant couldn't finish that question. Try asking it more simply.");
 }

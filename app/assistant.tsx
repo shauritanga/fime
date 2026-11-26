@@ -2,7 +2,8 @@ import { Mascot } from '@/components/assistant/Mascot';
 import { ReplyText } from '@/components/assistant/ReplyText';
 import { TypingDots } from '@/components/assistant/TypingDots';
 import { palette, radii, spacing } from '@/constants/theme';
-import { ask, newChat, useChat } from '@/lib/assistant/store';
+import { ask, newChat, settle, useChat } from '@/lib/assistant/store';
+import { useAppBridge } from '@/lib/assistant/useAppBridge';
 import { useVoice, type VoiceMode } from '@/lib/assistant/useVoice';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getSetting, setSetting } from '@/lib/finance/database';
@@ -17,7 +18,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Raised whenever what the assistant does with data changes, so people agree to it again.
-const CONSENT_KEY = 'assistant-consent-v3';
+const CONSENT_KEY = 'assistant-consent-v4';
 
 type IconName = SymbolViewProps['name'];
 
@@ -38,6 +39,7 @@ export default function AssistantScreen() {
   const db = useSQLiteContext();
   const { isLoading, isSignedIn } = useAuth();
   const { turns, busy } = useChat();
+  const bridge = useAppBridge();
   // `null` while the saved choice is being read.
   const [consented, setConsented] = useState<boolean | null>(null);
   const [draft, setDraft] = useState('');
@@ -55,12 +57,12 @@ export default function AssistantScreen() {
   const onVoiceText = useCallback(
     (text: string, mode: VoiceMode) => {
       if (mode === 'ask') {
-        ask(db, text);
+        ask(db, bridge, text);
       } else {
         setDraft((current) => (current ? `${current} ${text}` : text));
       }
     },
-    [db]
+    [bridge, db]
   );
   const voice = useVoice(onVoiceText);
 
@@ -98,7 +100,7 @@ export default function AssistantScreen() {
     setDraft('');
     setMenu(null);
     voice.clearError();
-    ask(db, question);
+    ask(db, bridge, question);
   }
 
   const last = turns[turns.length - 1];
@@ -177,8 +179,8 @@ export default function AssistantScreen() {
                 </Text>
                 <Text style={styles.noticeText}>• Your password, phone number and lenders&apos; names are not sent.</Text>
                 <Text style={styles.noticeText}>
-                  • It can read your data, and it sets or replaces a budget as soon as you ask it to. It
-                  cannot change anything else. Answers can be wrong, so check what it saved.
+                  • It can add and change your records and settings as soon as you ask, so check what it
+                  saved; say &quot;undo that&quot; to reverse the last change. Deleting an entry needs your tap.
                 </Text>
               </View>
               <Pressable accessibilityRole="link" onPress={openPrivacyPolicy} style={styles.policyLink}>
@@ -202,15 +204,40 @@ export default function AssistantScreen() {
                       <View style={styles.question}>
                         <Text style={styles.questionText}>{turn.question}</Text>
                       </View>
-                      {turn.answer ? (
+                      {turn.answer !== undefined ? (
                         <View style={styles.answer}>
                           <ReplyText reply={turn.answer} />
+                          {/* Written by the app, so it is exactly what was saved. */}
+                          {turn.saved?.map((line, index) => (
+                            <View key={index} style={styles.savedRow}>
+                              <SymbolView
+                                name={line.startsWith('Cancelled') || line.startsWith('Not done') ? icons.close : icons.check}
+                                size={18}
+                                tintColor={line.startsWith('Cancelled') || line.startsWith('Not done') ? palette.muted : palette.emerald}
+                              />
+                              <Text style={styles.savedText}>{line}</Text>
+                            </View>
+                          ))}
+                          {turn.pending?.map((item) => (
+                            <View key={item.id} style={styles.pending}>
+                              <Text style={styles.savedText}>{item.summary}</Text>
+                              <View style={styles.chipRow}>
+                                <Chip label="Confirm" onPress={() => settle(turn.id, item.id, true)} />
+                                <Chip label="Cancel" onPress={() => settle(turn.id, item.id, false)} />
+                              </View>
+                            </View>
+                          ))}
+                          {turn.screens?.map((screen) => (
+                            <View key={screen.href} style={styles.chipRow}>
+                              <Chip label={`Open ${screen.label}`} onPress={() => router.dismissTo(screen.href)} />
+                            </View>
+                          ))}
                         </View>
                       ) : turn.error ? (
                         <View style={styles.answer}>
                           <Text style={styles.error}>{turn.error}</Text>
                           {turn === last ? (
-                            <Chip label="Try again" onPress={() => ask(db, turn.question, turn.id)} />
+                            <Chip label="Try again" onPress={() => ask(db, bridge, turn.question, turn.id)} />
                           ) : null}
                         </View>
                       ) : (
@@ -506,6 +533,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 40,
     paddingHorizontal: spacing.md,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  savedText: {
+    color: palette.ink,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  pending: {
+    marginTop: spacing.md,
   },
   chipText: {
     color: palette.emerald,

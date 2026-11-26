@@ -485,6 +485,7 @@ export async function postDueRecurringTransactions(db: SQLiteDatabase, today = n
 
 /** Records this month's payment as an expense and moves the due date on a month. */
 export async function markSubscriptionPaid(db: SQLiteDatabase, subscriptionId: string) {
+  let paid = { transactionId: '', previousDueDate: '' };
   await db.withTransactionAsync(async () => {
     const subscription = await db.getFirstAsync<Subscription>(
       'SELECT * FROM subscriptions WHERE id = ?',
@@ -494,7 +495,7 @@ export async function markSubscriptionPaid(db: SQLiteDatabase, subscriptionId: s
       throw new Error('Subscription not found');
     }
 
-    await createTransaction(db, {
+    const payment = await createTransaction(db, {
       amount: subscription.amount,
       categoryId: subscription.categoryId,
       date: todayISO(),
@@ -508,7 +509,9 @@ export async function markSubscriptionPaid(db: SQLiteDatabase, subscriptionId: s
       addMonth(from),
       subscription.id
     );
+    paid = { transactionId: payment.id, previousDueDate: subscription.nextDueDate };
   });
+  return paid;
 }
 
 export async function listLoans(db: SQLiteDatabase) {
@@ -827,4 +830,54 @@ function advanceDate(value: string, frequency: 'weekly' | 'monthly') {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() + 7);
   return toISODate(date);
+}
+
+// ------------------------------------------------------------------ reversing the assistant's changes
+
+export async function restoreTransaction(db: SQLiteDatabase, transaction: Transaction) {
+  await insertTransaction(db, transaction);
+}
+
+export async function deleteBudget(db: SQLiteDatabase, categoryId: string, period: string) {
+  await db.runAsync('DELETE FROM budgets WHERE categoryId = ? AND period = ?', categoryId, period);
+}
+
+export async function deleteSavingsGoal(db: SQLiteDatabase, id: string) {
+  await db.runAsync('DELETE FROM savings_goals WHERE id = ?', id);
+}
+
+export async function deleteSubscription(db: SQLiteDatabase, id: string) {
+  await db.runAsync('DELETE FROM subscriptions WHERE id = ?', id);
+}
+
+export async function setSubscriptionDueDate(db: SQLiteDatabase, id: string, nextDueDate: string) {
+  await db.runAsync('UPDATE subscriptions SET nextDueDate = ? WHERE id = ?', nextDueDate, id);
+}
+
+export async function deleteRecurringTransaction(db: SQLiteDatabase, id: string) {
+  await db.runAsync('DELETE FROM recurring_transactions WHERE id = ?', id);
+}
+
+export async function setRecurringNextDate(db: SQLiteDatabase, id: string, nextDate: string) {
+  await db.runAsync('UPDATE recurring_transactions SET nextDate = ? WHERE id = ?', nextDate, id);
+}
+
+/** Removes a loan that has no repayments or return recorded against it. */
+export async function deleteUnusedLoan(db: SQLiteDatabase, id: string) {
+  const activity = await db.getFirstAsync('SELECT id FROM loan_activities WHERE loanId = ?', id);
+  if (activity) {
+    throw new Error('This loan already has activity recorded, so it was kept.');
+  }
+  await db.runAsync('DELETE FROM loans WHERE id = ?', id);
+}
+
+/** Takes back a repayment or return, including the expense a repayment created. */
+export async function deleteLoanActivity(db: SQLiteDatabase, activity: LoanActivity) {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM loan_activities WHERE id = ?', activity.id);
+    if (activity.transactionId) {
+      await db.runAsync('DELETE FROM transactions WHERE id = ?', activity.transactionId);
+    }
+    await db.runAsync("UPDATE loans SET status = 'active' WHERE id = ?", activity.loanId);
+  });
 }

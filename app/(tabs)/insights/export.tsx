@@ -1,33 +1,15 @@
-import { ActionButton, csv } from '@/components/insights-controls';
+import { ActionButton } from '@/components/insights-controls';
 import { Card, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
+import { shareTransactionsCsv } from '@/lib/finance/export';
 import { useFinance } from '@/lib/finance/useFinance';
-import { ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function ExportScreen() {
   const { categories, transactions } = useFinance();
-  const categoryMap = new Map(categories.map((category) => [category.id, category]));
 
-  async function exportCsv() {
-    const rows = [
-      'id,type,amount,category,note,date',
-      ...transactions.map((transaction) => {
-        const category = categoryMap.get(transaction.categoryId)?.name ?? 'Category';
-        return [
-          transaction.id,
-          transaction.type,
-          transaction.amount,
-          csv(category),
-          csv(transaction.note),
-          transaction.date,
-        ].join(',');
-      }),
-    ];
-
-    await Share.share({
-      message: rows.join('\n'),
-      title: 'Fime transactions export',
-    });
+  function exportCsv() {
+    return shareTransactionsCsv(transactions, categories);
   }
 
   return (
