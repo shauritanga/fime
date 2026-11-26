@@ -80,6 +80,11 @@ def privacy():
     return FileResponse(BASE_DIR / "static" / "privacy.html")
 
 
+@app.get("/terms")
+def terms():
+    return FileResponse(BASE_DIR / "static" / "terms.html")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

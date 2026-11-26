@@ -185,3 +185,8 @@ def test_privacy_policy_is_public():
     response = client.get("/privacy")
     assert response.status_code == 200 and "text/html" in response.headers["content-type"]
     assert "Fime Privacy Policy" in response.text
+
+
+def test_terms_are_public():
+    response = client.get("/terms")
+    assert response.status_code == 200 and "Fime Terms of Service" in response.text
