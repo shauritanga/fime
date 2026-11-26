@@ -1,6 +1,6 @@
 import { ActionButton, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, financeStyles, Muted, ProgressBar, Screen, Title } from '@/components/finance-ui';
+import { Card, financeStyles, Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import { BudgetRequiredError } from '@/lib/finance/database';
 import { formatMoney, formatShortDate, todayISO } from '@/lib/finance/format';
@@ -17,7 +17,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { DateField, SheetInput } from '@/components/form-fields';
 
 export default function LoansScreen() {
   const { addLoan, loanActivities, loans, repayLoan, returnLoan } = useFinance();
@@ -97,7 +97,7 @@ export default function LoansScreen() {
   async function saveLoan() {
     const value = Number(amount.replace(/,/g, ''));
     if (!counterparty.trim() || !title.trim() || value <= 0 || !dueDate.trim()) {
-      Alert.alert('Missing loan details', 'Enter a counterparty, title, amount, and due date.');
+      Alert.alert('Missing loan details', 'Enter who you borrowed from, a title and an amount.');
       return;
     }
 
@@ -152,32 +152,27 @@ export default function LoansScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View>
-          <Title>Loans</Title>
-          <Muted>Track borrowed money, borrowed items, and repayment history.</Muted>
-        </View>
-
         <View style={styles.metrics}>
-          <Card tone="soft">
-            <Text style={styles.metricLabel}>Money outstanding</Text>
-            <Text style={styles.metricValue}>{formatMoney(moneyOutstanding)}</Text>
-          </Card>
-          <Card>
-            <Text style={styles.metricLabel}>Active item loans</Text>
-            <Text style={styles.metricValue}>{itemActiveCount}</Text>
-          </Card>
+          <View style={styles.metric}>
+            <Card tone="soft">
+              <Text style={styles.metricLabel}>Money still owed</Text>
+              <Text adjustsFontSizeToFit numberOfLines={1} style={styles.metricValue}>
+                {formatMoney(moneyOutstanding)}
+              </Text>
+            </Card>
+          </View>
+          <View style={styles.metric}>
+            <Card>
+              <Text style={styles.metricLabel}>Items to return</Text>
+              <Text style={styles.metricValue}>{itemActiveCount}</Text>
+            </Card>
+          </View>
         </View>
-
-        <Card>
-          <Muted>
-            Repayments use the <Text style={styles.inlineEmphasis}>Loan repayment</Text> expense category and require a budget first.
-          </Muted>
-        </Card>
 
         {loans.length === 0 ? (
           <Card>
             <Text style={styles.emptyTitle}>No loans yet</Text>
-            <Muted>Add a borrowed cash or item loan to start tracking it here.</Muted>
+            <Muted>Tap + to record money or an item you borrowed.</Muted>
           </Card>
         ) : (
           loans.map((loan) => {
@@ -260,7 +255,7 @@ export default function LoansScreen() {
         <View style={styles.sheetHeader}>
           <View style={styles.sheetCopy}>
             <Text style={styles.sheetTitle}>Add loan</Text>
-            <Muted>Track borrowed money or items with the same flow.</Muted>
+            <Muted>Record money or an item you borrowed.</Muted>
           </View>
           <Pressable onPress={() => setSheetOpen(false)} style={styles.closeButton}>
             <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={22} />
@@ -280,45 +275,24 @@ export default function LoansScreen() {
           ))}
         </View>
 
-        <BottomSheetTextInput
-          placeholder="Counterparty"
-          placeholderTextColor={palette.muted}
-          style={insightFormStyles.input}
-          value={counterparty}
-          onChangeText={setCounterparty}
-        />
-        <BottomSheetTextInput
-          placeholder={loanType === 'money' ? 'Loan title' : 'Item name'}
-          placeholderTextColor={palette.muted}
-          style={insightFormStyles.input}
+        <SheetInput label="Borrowed from" placeholder="Name" value={counterparty} onChangeText={setCounterparty} />
+        <SheetInput
+          label={loanType === 'money' ? 'What is it for?' : 'Item name'}
           value={title}
           onChangeText={setTitle}
         />
         <View style={insightFormStyles.twoColumn}>
-          <BottomSheetTextInput
+          <SheetInput
+            containerStyle={styles.metric}
             keyboardType="numeric"
-            placeholder={loanType === 'money' ? 'Amount borrowed' : 'Estimated value'}
-            placeholderTextColor={palette.muted}
-            style={insightFormStyles.inputFlex}
+            label={loanType === 'money' ? 'Amount (TZS)' : 'Estimated value'}
+            placeholder="0"
             value={amount}
             onChangeText={setAmount}
           />
-          <BottomSheetTextInput
-            placeholder="Due date"
-            placeholderTextColor={palette.muted}
-            style={insightFormStyles.inputFlex}
-            value={dueDate}
-            onChangeText={setDueDate}
-          />
+          <DateField label="Due date" style={styles.metric} value={dueDate} onChange={setDueDate} />
         </View>
-        <BottomSheetTextInput
-          multiline
-          placeholder="Notes"
-          placeholderTextColor={palette.muted}
-          style={styles.notesInput}
-          value={notes}
-          onChangeText={setNotes}
-        />
+        <SheetInput label="Notes (optional)" multiline style={styles.notesInput} value={notes} onChangeText={setNotes} />
         <ActionButton label="Save loan" onPress={saveLoan} />
       </BottomSheet>
 
@@ -330,8 +304,8 @@ export default function LoansScreen() {
             </Text>
             <Muted>
               {selectedLoan?.type === 'money'
-                ? 'Repayment posts as an expense under Loan repayment.'
-                : 'Return the item and keep the history in the loan timeline.'}
+                ? 'Saved as an expense. It needs a Loan repayment budget.'
+                : 'The loan stays in your history.'}
             </Muted>
           </View>
           <Pressable onPress={() => setActionSheetOpen(false)} style={styles.closeButton}>
@@ -340,31 +314,15 @@ export default function LoansScreen() {
         </View>
 
         {selectedLoan?.type === 'money' && (
-          <BottomSheetTextInput
+          <SheetInput
             keyboardType="numeric"
-            placeholder={`Remaining ${formatMoney(selectedLoan.remainingAmount)}`}
-            placeholderTextColor={palette.muted}
-            style={insightFormStyles.input}
+            label={`Amount (${formatMoney(selectedLoan.remainingAmount)} remaining)`}
             value={repaymentAmount}
             onChangeText={setRepaymentAmount}
           />
         )}
-        <View style={insightFormStyles.twoColumn}>
-          <BottomSheetTextInput
-            placeholder="Date"
-            placeholderTextColor={palette.muted}
-            style={insightFormStyles.inputFlex}
-            value={repaymentDate}
-            onChangeText={setRepaymentDate}
-          />
-          <BottomSheetTextInput
-            placeholder="Note"
-            placeholderTextColor={palette.muted}
-            style={insightFormStyles.inputFlex}
-            value={repaymentNote}
-            onChangeText={setRepaymentNote}
-          />
-        </View>
+        <DateField label="Date" maximumDate={new Date()} value={repaymentDate} onChange={setRepaymentDate} />
+        <SheetInput label="Note" value={repaymentNote} onChangeText={setRepaymentNote} />
 
         <ActionButton
           label={selectedLoan?.type === 'money' ? 'Save repayment' : 'Mark returned'}
@@ -396,9 +354,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: spacing.xs,
   },
-  inlineEmphasis: {
-    color: palette.ink,
-    fontWeight: '900',
+  metric: {
+    flex: 1,
   },
   emptyTitle: {
     color: palette.ink,

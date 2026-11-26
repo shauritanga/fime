@@ -1,12 +1,12 @@
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, financeStyles, Muted, ProgressBar, Screen, Title } from '@/components/finance-ui';
+import { Card, EmptyState, financeStyles, Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
-import { currentPeriod, formatMoney } from '@/lib/finance/format';
+import { currentPeriod, formatMoney, formatPeriod } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { SheetInput } from '@/components/form-fields';
 
 export default function MoreBudgetsScreen() {
   const { budgets, expenseCategories, saveBudget } = useFinance();
@@ -37,9 +37,13 @@ export default function MoreBudgetsScreen() {
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View>
-          <Title>Budgets</Title>
-          <Muted>Set limits and see where the month is getting tight.</Muted>
+          <Text style={styles.sectionTitle}>{formatPeriod(currentPeriod())}</Text>
+          <Muted>Limits carry into each new month until you change them.</Muted>
         </View>
+
+        {budgets.length === 0 ? (
+          <EmptyState title="No budgets yet" message="Tap + to set a monthly limit. An expense needs a budget for its category." />
+        ) : null}
 
         {budgets.map((budget) => {
           const isOver = budget.spent > budget.limitAmount;
@@ -51,13 +55,18 @@ export default function MoreBudgetsScreen() {
                   <Muted>{formatMoney(budget.spent)} spent</Muted>
                 </View>
                 <Text style={isOver ? styles.over : styles.remaining}>
-                  {isOver ? 'Over' : formatMoney(budget.remaining)}
+                  {isOver
+                    ? `${formatMoney(budget.spent - budget.limitAmount)} over`
+                    : `${formatMoney(budget.remaining)} left`}
                 </Text>
               </View>
               <View style={styles.progressSpacing}>
                 <ProgressBar value={budget.progress} color={isOver ? palette.coral : budget.category.color} />
               </View>
-              <Muted>{Math.round(budget.progress * 100)}% of {formatMoney(budget.limitAmount)}</Muted>
+              <Muted>
+                {Math.round(budget.limitAmount > 0 ? (budget.spent / budget.limitAmount) * 100 : 0)}% of{' '}
+                {formatMoney(budget.limitAmount)}
+              </Muted>
             </Card>
           );
         })}
@@ -103,13 +112,12 @@ export default function MoreBudgetsScreen() {
           ))}
         </View>
 
-        <Text style={styles.inputLabel}>Monthly amount</Text>
-        <BottomSheetTextInput
+        <SheetInput
+          containerStyle={styles.amountField}
           keyboardType="numeric"
+          label="Monthly limit (TZS)"
           onChangeText={setLimitAmount}
-          placeholder="Monthly amount"
-          placeholderTextColor={palette.muted}
-          style={styles.input}
+          placeholder="0"
           value={limitAmount}
         />
         <Pressable onPress={submit} style={styles.submit}>
@@ -155,15 +163,8 @@ const styles = StyleSheet.create({
   categoryTextActive: {
     color: palette.white,
   },
-  input: {
-    backgroundColor: palette.background,
-    borderColor: palette.border,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    color: palette.ink,
-    fontSize: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+  amountField: {
+    marginTop: spacing.lg,
   },
   submit: {
     alignItems: 'center',

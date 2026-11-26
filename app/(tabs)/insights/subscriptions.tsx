@@ -1,19 +1,28 @@
 import { ActionButton, CategoryChips, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, financeStyles, Muted, Screen, Title } from '@/components/finance-ui';
+import { Card, EmptyState, financeStyles, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
-import { BudgetRequiredError } from '@/lib/finance/database';
-import { formatMoney, todayISO } from '@/lib/finance/format';
+import { BudgetRequiredError, LOAN_REPAYMENT_CATEGORY_ID } from '@/lib/finance/database';
+import { formatFullDate, formatMoney, todayISO } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import type { Subscription } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { DateField, Field, SheetInput } from '@/components/form-fields';
 
 export default function SubscriptionsScreen() {
-  const { addSubscription, categories, expenseCategories, saveSubscription: updateSubscription, subscriptions } = useFinance();
+  const {
+    addSubscription,
+    categories,
+    expenseCategories,
+    paySubscription,
+    saveSubscription: updateSubscription,
+    subscriptions,
+  } = useFinance();
+  const [payingId, setPayingId] = useState('');
+  const billCategories = expenseCategories.filter((category) => category.id !== LOAN_REPAYMENT_CATEGORY_ID);
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [name, setName] = useState('');
@@ -21,7 +30,7 @@ export default function SubscriptionsScreen() {
   const [due, setDue] = useState(todayISO());
   const [categoryId, setCategoryId] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
-  const selectedCategoryId = categoryId || expenseCategories[0]?.id || '';
+  const selectedCategoryId = categoryId || billCategories[0]?.id || '';
   const total = subscriptions.reduce((sum, item) => sum + item.amount, 0);
 
   function openCreateSheet() {
@@ -91,32 +100,78 @@ export default function SubscriptionsScreen() {
     }
   }
 
+  function confirmPaid(subscription: Subscription) {
+    Alert.alert(
+      'Mark as paid?',
+      `${formatMoney(subscription.amount)} for ${subscription.name} will be saved as an expense dated today.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Mark paid', onPress: () => pay(subscription.id) },
+      ]
+    );
+  }
+
+  async function pay(subscriptionId: string) {
+    // Ignore a second tap while the first payment is still being saved.
+    if (payingId) {
+      return;
+    }
+    setPayingId(subscriptionId);
+    try {
+      await paySubscription(subscriptionId);
+    } catch (error) {
+      if (error instanceof BudgetRequiredError) {
+        Alert.alert('Budget required', 'Create a budget for this category, then mark it paid.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open budgets', onPress: () => router.push('/insights/budgets') },
+        ]);
+      } else {
+        Alert.alert('Could not save', error instanceof Error ? error.message : 'Please try again.');
+      }
+    } finally {
+      setPayingId('');
+    }
+  }
+
+  function dueLabel(date: string) {
+    const today = todayISO();
+    if (date === today) {
+      return 'Due today';
+    }
+    return `${date < today ? 'Overdue since' : 'Due'} ${formatFullDate(date)}`;
+  }
+
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View>
-          <Title>Subscriptions</Title>
-          <Muted>Track recurring services and renewals before they surprise you.</Muted>
-        </View>
-
         <Card tone="soft">
-          <Text style={styles.summaryLabel}>Monthly commitments</Text>
+          <Text style={styles.summaryLabel}>Total per month</Text>
           <Text style={styles.summaryValue}>{formatMoney(total)}</Text>
         </Card>
 
+        {subscriptions.length === 0 ? (
+          <EmptyState title="No subscriptions yet" message="Tap + to add a monthly bill, such as internet or TV." />
+        ) : null}
+
         {subscriptions.map((subscription) => (
-          <Pressable
-            key={subscription.id}
-            onPress={() => openEditSheet(subscription)}
-            style={({ pressed }) => pressed && styles.pressed}>
-            <Card>
+          <Card key={subscription.id}>
+            <Pressable
+              accessibilityHint="Edits this subscription"
+              accessibilityRole="button"
+              onPress={() => openEditSheet(subscription)}
+              style={({ pressed }) => pressed && styles.pressed}>
               <View style={financeStyles.row}>
                 <Text style={styles.itemTitle}>{subscription.name}</Text>
                 <Text style={styles.itemValue}>{formatMoney(subscription.amount)}</Text>
               </View>
-              <Muted>{categoryMap.get(subscription.categoryId)?.name ?? 'Category'} · due {subscription.nextDueDate}</Muted>
-            </Card>
-          </Pressable>
+              <Muted>
+                {categoryMap.get(subscription.categoryId)?.name ?? 'Category'} · {dueLabel(subscription.nextDueDate)}
+              </Muted>
+            </Pressable>
+            <View style={styles.payButton}>
+              <ActionButton label="Mark paid" onPress={() => confirmPaid(subscription)} tone="muted" />
+            </View>
+          </Card>
         ))}
       </ScrollView>
 
@@ -134,12 +189,14 @@ export default function SubscriptionsScreen() {
             <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={22} />
           </Pressable>
         </View>
-        <BottomSheetTextInput placeholder="Subscription name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={name} onChangeText={setName} />
+        <SheetInput label="Name" placeholder="Home internet" value={name} onChangeText={setName} />
         <View style={insightFormStyles.twoColumn}>
-          <BottomSheetTextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
-          <BottomSheetTextInput placeholder="Next due" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={due} onChangeText={setDue} />
+          <SheetInput containerStyle={styles.column} keyboardType="numeric" label="Monthly amount" placeholder="0" value={amount} onChangeText={setAmount} />
+          <DateField label="Next due date" style={styles.column} value={due} onChange={setDue} />
         </View>
-        <CategoryChips categories={expenseCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+        <Field label="Category">
+          <CategoryChips categories={billCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+        </Field>
         <ActionButton label={editingSubscription ? 'Save changes' : 'Add subscription'} onPress={saveSubscription} />
       </BottomSheet>
     </Screen>
@@ -151,6 +208,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  column: {
+    flex: 1,
+  },
+  payButton: {
+    marginTop: spacing.sm,
   },
   summaryLabel: {
     color: palette.muted,

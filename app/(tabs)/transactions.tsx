@@ -246,11 +246,14 @@ export default function TransactionsScreen() {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeader}>{section.title}</Text>
             {/* A partly loaded search can't show a reliable day total. */}
-            {!searching ? <Text style={styles.sectionHeader}>{formatSignedMoney(section.net)}</Text> : null}
+            {!searching ? <Text style={styles.sectionNet}>{formatSignedMoney(section.net)}</Text> : null}
           </View>
         )}
         renderItem={({ item, index, section }) => (
           <View
+            // Android can leave a row blank if its rounded corners change in place (for
+            // example when a newer entry pushes it down), so redraw it when they do.
+            key={`${index === 0}-${index === section.data.length - 1}`}
             style={[
               styles.row,
               index === 0 && styles.firstRow,
@@ -545,6 +548,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     textTransform: 'uppercase',
+  },
+  sectionNet: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: '900',
   },
   row: {
     borderColor: palette.border,

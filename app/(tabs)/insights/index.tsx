@@ -5,39 +5,33 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const menuItems = [
   {
-    detail: 'Set monthly category limits and track budget progress.',
+    detail: 'Monthly limits by category.',
     href: '/insights/budgets',
-    stat: 'Limits',
     title: 'Budgets',
   },
   {
-    detail: 'Track emergency funds, trips, or big purchases.',
+    detail: 'Save toward something.',
     href: '/insights/goals',
-    stat: 'Targets',
     title: 'Savings goals',
   },
   {
-    detail: 'Track borrowed money and items with repayment history.',
+    detail: 'Money and items you borrowed.',
     href: '/insights/loans',
-    stat: 'Debt',
     title: 'Loans',
   },
   {
-    detail: 'Keep recurring services and upcoming renewals visible.',
+    detail: 'Bills and renewals to pay.',
     href: '/insights/subscriptions',
-    stat: 'Bills',
     title: 'Subscriptions',
   },
   {
-    detail: 'Prepare predictable income and expenses for posting.',
+    detail: 'Regular income and expenses.',
     href: '/insights/recurring',
-    stat: 'Schedule',
     title: 'Recurring transactions',
   },
   {
-    detail: 'Share a CSV copy of locally stored transactions.',
+    detail: 'Share your transactions as a CSV file.',
     href: '/insights/export',
-    stat: 'CSV',
     title: 'Export',
   },
 ] as const;
@@ -48,7 +42,7 @@ export default function InsightsMenuScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View>
           <Title>More</Title>
-          <Muted>Open focused tools for analysis, planning, automation, and exports.</Muted>
+          <Muted>Plan your money and manage your data.</Muted>
         </View>
 
         {menuItems.map((item) => (
@@ -61,9 +55,7 @@ export default function InsightsMenuScreen() {
                   <Text style={styles.itemTitle}>{item.title}</Text>
                   <Muted>{item.detail}</Muted>
                 </View>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.stat}</Text>
-                </View>
+                <Text style={styles.chevron}>›</Text>
               </View>
           </Pressable>
         ))}
@@ -74,7 +66,7 @@ export default function InsightsMenuScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
@@ -83,7 +75,8 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     borderRadius: radii.md,
     borderWidth: 1,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   menuCardPressed: {
     opacity: 0.72,
@@ -100,19 +93,11 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     color: palette.ink,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
-    marginBottom: spacing.xs,
   },
-  badge: {
-    backgroundColor: palette.emeraldSoft,
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  badgeText: {
-    color: palette.emerald,
-    fontSize: 11,
-    fontWeight: '900',
+  chevron: {
+    color: palette.muted,
+    fontSize: 26,
   },
 });

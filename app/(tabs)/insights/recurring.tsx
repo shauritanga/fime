@@ -1,16 +1,16 @@
 import { ActionButton, CategoryChips, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, financeStyles, Muted, Screen, Title } from '@/components/finance-ui';
+import { Card, EmptyState, financeStyles, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
-import { BudgetRequiredError } from '@/lib/finance/database';
-import { formatMoney, todayISO } from '@/lib/finance/format';
+import { BudgetRequiredError, LOAN_REPAYMENT_CATEGORY_ID } from '@/lib/finance/database';
+import { formatFullDate, formatMoney, todayISO } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import type { RecurringFrequency, TransactionType } from '@/lib/finance/types';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { DateField, Field, SheetInput } from '@/components/form-fields';
 
 export default function RecurringScreen() {
   const {
@@ -28,7 +28,11 @@ export default function RecurringScreen() {
   const [categoryId, setCategoryId] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const recurringCategories =
-    type === 'income' ? categories.filter((category) => category.type === 'income') : expenseCategories;
+    type === 'income'
+      ? categories.filter((category) => category.type === 'income')
+      : expenseCategories.filter((category) => category.id !== LOAN_REPAYMENT_CATEGORY_ID);
+  const dueCount = recurringTransactions.filter((item) => item.nextDate <= todayISO()).length;
+  const [posting, setPosting] = useState(false);
   const selectedCategoryId = categoryId || recurringCategories[0]?.id || '';
 
   function openCreateSheet() {
@@ -83,35 +87,45 @@ export default function RecurringScreen() {
   }
 
   async function postRecurring() {
-    const posted = await postDueRecurring();
-    Alert.alert('Recurring posted', `${posted} due item${posted === 1 ? '' : 's'} posted.`);
+    if (posting) {
+      return;
+    }
+    setPosting(true);
+    try {
+      const { posted, skipped } = await postDueRecurring();
+      const lines = [`${posted} ${posted === 1 ? 'transaction' : 'transactions'} added.`];
+      for (const item of skipped) {
+        lines.push(
+          item.reason === 'budget'
+            ? `${item.note}: not added, it needs a budget for its category.`
+            : `${item.note}: not added, its date is not valid.`
+        );
+      }
+      Alert.alert('Due items', lines.join('\n'));
+    } catch (error) {
+      Alert.alert('Could not save', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setPosting(false);
+    }
   }
 
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View>
-          <Title>Recurring</Title>
-          <Muted>Schedule predictable money movements and post due items.</Muted>
-        </View>
-
-        <Card tone="soft">
-          <View style={financeStyles.row}>
-            <View>
-              <Text style={styles.summaryValue}>{recurringTransactions.length}</Text>
-              <Muted>scheduled recurring item{recurringTransactions.length === 1 ? '' : 's'}</Muted>
+        {dueCount > 0 ? (
+          <Card tone="soft">
+            <Text style={styles.emptyTitle}>
+              {dueCount} {dueCount === 1 ? 'item is' : 'items are'} due
+            </Text>
+            <Muted>Any dates you missed are added too.</Muted>
+            <View style={styles.dueButton}>
+              <ActionButton label="Add to transactions" onPress={postRecurring} />
             </View>
-            <Pressable onPress={postRecurring} style={({ pressed }) => [styles.postButton, pressed && styles.pressed]}>
-              <Text style={styles.postButtonText}>Post due</Text>
-            </Pressable>
-          </View>
-        </Card>
+          </Card>
+        ) : null}
 
         {recurringTransactions.length === 0 && (
-          <Card>
-            <Text style={styles.emptyTitle}>No recurring items yet</Text>
-            <Muted>Add predictable bills, income, or planned transfers.</Muted>
-          </Card>
+          <EmptyState title="No recurring items yet" message="Tap + to add regular income or expenses, such as salary or rent." />
         )}
 
         {recurringTransactions.map((item) => (
@@ -122,7 +136,9 @@ export default function RecurringScreen() {
                 {formatMoney(item.amount)}
               </Text>
             </View>
-            <Muted>{item.frequency} · next {item.nextDate}</Muted>
+            <Muted>
+              {item.frequency === 'weekly' ? 'Weekly' : 'Monthly'} · next {formatFullDate(item.nextDate)}
+            </Muted>
           </Card>
         ))}
       </ScrollView>
@@ -157,10 +173,10 @@ export default function RecurringScreen() {
           ))}
         </View>
         <View style={insightFormStyles.twoColumn}>
-          <BottomSheetTextInput keyboardType="numeric" placeholder="Amount" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={amount} onChangeText={setAmount} />
-          <BottomSheetTextInput placeholder="Next date" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={nextDate} onChangeText={setNextDate} />
+          <SheetInput containerStyle={styles.column} keyboardType="numeric" label="Amount (TZS)" placeholder="0" value={amount} onChangeText={setAmount} />
+          <DateField label="Next date" style={styles.column} value={nextDate} onChange={setNextDate} />
         </View>
-        <BottomSheetTextInput placeholder="Note" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={note} onChangeText={setNote} />
+        <SheetInput label="Title" placeholder={type === 'income' ? 'Salary' : 'Rent'} value={note} onChangeText={setNote} />
         <View style={insightFormStyles.segment}>
           {(['monthly', 'weekly'] as RecurringFrequency[]).map((item) => (
             <Pressable
@@ -173,7 +189,9 @@ export default function RecurringScreen() {
             </Pressable>
           ))}
         </View>
-        <CategoryChips categories={recurringCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+        <Field label="Category">
+          <CategoryChips categories={recurringCategories} selectedId={selectedCategoryId} onSelect={setCategoryId} />
+        </Field>
         <ActionButton label="Add recurring" onPress={saveRecurring} />
       </BottomSheet>
     </Screen>
@@ -186,24 +204,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
   },
-  summaryValue: {
-    color: palette.ink,
-    fontSize: 34,
-    fontWeight: '900',
+  column: {
+    flex: 1,
   },
-  postButton: {
-    alignItems: 'center',
-    backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  postButtonText: {
-    color: palette.emerald,
-    fontSize: 13,
-    fontWeight: '900',
+  dueButton: {
+    marginTop: spacing.md,
   },
   emptyTitle: {
     color: palette.ink,

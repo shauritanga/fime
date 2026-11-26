@@ -1,13 +1,10 @@
 import { SymbolView } from 'expo-symbols';
 import { Redirect, Tabs } from 'expo-router';
 
-import Colors from '@/constants/Colors';
 import { palette } from '@/constants/theme';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { isLoading, isSignedIn } = useAuth();
 
   if (isLoading) {
@@ -25,7 +22,7 @@ export default function TabLayout() {
         headerTitleStyle: { color: palette.ink, fontWeight: '800' },
         headerShown: false,
         tabBarActiveTintColor: palette.emerald,
-        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
+        tabBarInactiveTintColor: palette.muted,
         tabBarStyle: {
           backgroundColor: palette.white,
           borderTopColor: palette.border,

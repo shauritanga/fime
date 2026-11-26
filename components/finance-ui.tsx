@@ -31,6 +31,15 @@ export function Muted({ children }: PropsWithChildren) {
   return <Text style={styles.muted}>{children}</Text>;
 }
 
+export function EmptyState({ message, title }: { message: string; title: string }) {
+  return (
+    <Card>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Muted>{message}</Muted>
+    </Card>
+  );
+}
+
 export function ProgressBar({ value, color = palette.emerald }: { value: number; color?: string }) {
   const clampedValue = Math.max(0, Math.min(value, 1));
   const fillWidth = clampedValue === 0 ? 0 : Math.max(0.04, clampedValue) * 100;
@@ -107,6 +116,12 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  emptyTitle: {
+    color: palette.ink,
+    fontSize: 17,
+    fontWeight: '900',
+    marginBottom: spacing.xs,
   },
   progressTrack: {
     backgroundColor: palette.surfaceMuted,

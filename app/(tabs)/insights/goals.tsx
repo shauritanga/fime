@@ -1,13 +1,13 @@
 import { ActionButton, insightFormStyles } from '@/components/insights-controls';
 import { BottomSheet } from '@/components/BottomSheet';
-import { Card, Muted, Screen, Title } from '@/components/finance-ui';
+import { EmptyState, Muted, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
-import { formatMoney, todayISO } from '@/lib/finance/format';
+import { formatFullDate, formatMoney, todayISO } from '@/lib/finance/format';
 import { useFinance } from '@/lib/finance/useFinance';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { DateField, SheetInput } from '@/components/form-fields';
 import Svg, { Circle } from 'react-native-svg';
 
 export default function GoalsScreen() {
@@ -43,14 +43,14 @@ export default function GoalsScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View>
-          <Title>Savings goals</Title>
-          <Muted>Track money set aside for upcoming priorities.</Muted>
-        </View>
+        {goals.length === 0 ? (
+          <EmptyState title="No savings goals yet" message="Tap + to set a target, such as school fees or a trip." />
+        ) : null}
 
         <View style={styles.goalList}>
           {goals.map((goal, index) => (
             <GoalCard
+              dueDate={goal.dueDate}
               key={goal.id}
               name={goal.name}
               savedAmount={goal.savedAmount}
@@ -75,12 +75,12 @@ export default function GoalsScreen() {
             <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor={palette.ink} size={22} />
           </Pressable>
         </View>
-        <BottomSheetTextInput placeholder="Goal name" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalName} onChangeText={setGoalName} />
+        <SheetInput label="Goal name" placeholder="School fees" value={goalName} onChangeText={setGoalName} />
         <View style={insightFormStyles.twoColumn}>
-          <BottomSheetTextInput keyboardType="numeric" placeholder="Target" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalTarget} onChangeText={setGoalTarget} />
-          <BottomSheetTextInput keyboardType="numeric" placeholder="Saved" placeholderTextColor={palette.muted} style={insightFormStyles.inputFlex} value={goalSaved} onChangeText={setGoalSaved} />
+          <SheetInput containerStyle={styles.column} keyboardType="numeric" label="Target (TZS)" placeholder="0" value={goalTarget} onChangeText={setGoalTarget} />
+          <SheetInput containerStyle={styles.column} keyboardType="numeric" label="Saved so far" placeholder="0" value={goalSaved} onChangeText={setGoalSaved} />
         </View>
-        <BottomSheetTextInput placeholder="Due date YYYY-MM-DD" placeholderTextColor={palette.muted} style={insightFormStyles.input} value={goalDue} onChangeText={setGoalDue} />
+        <DateField label="Target date" value={goalDue} onChange={setGoalDue} />
         <ActionButton label="Add goal" onPress={saveGoal} />
       </BottomSheet>
     </Screen>
@@ -111,11 +111,13 @@ const goalVariants = [
 ] as const;
 
 function GoalCard({
+  dueDate,
   name,
   savedAmount,
   targetAmount,
   variant,
 }: {
+  dueDate: string;
   name: string;
   savedAmount: number;
   targetAmount: number;
@@ -133,9 +135,9 @@ function GoalCard({
 
       <View style={styles.goalCopy}>
         <Text style={styles.goalTitle}>{name}</Text>
-        <Text style={styles.goalAmount}>
-          {formatMoney(savedAmount)} <Text style={styles.goalTarget}>of {formatMoney(targetAmount)}</Text>
-        </Text>
+        <Text style={styles.goalAmount}>{formatMoney(savedAmount)}</Text>
+        <Text style={styles.goalTarget}>of {formatMoney(targetAmount)}</Text>
+        <Muted>By {formatFullDate(dueDate)}</Muted>
       </View>
 
       <CircularProgress color={theme.color} progress={progress} percentage={percentage} />
@@ -188,6 +190,9 @@ function CircularProgress({
 }
 
 const styles = StyleSheet.create({
+  column: {
+    flex: 1,
+  },
   content: {
     gap: spacing.md,
     padding: spacing.md,

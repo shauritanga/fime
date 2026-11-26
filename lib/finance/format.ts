@@ -63,9 +63,36 @@ export function formatSignedMoney(value: number) {
   return `${sign}${formatMoney(Math.abs(value))}`;
 }
 
+export function isValidISODate(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && toISODate(date) === value;
+}
+
+// Older versions let dates be typed by hand, so stored values may not be real dates.
 export function formatShortDate(value: string) {
+  if (!isValidISODate(value)) {
+    return value;
+  }
   return new Intl.DateTimeFormat('en-TZ', {
     day: 'numeric',
     month: 'short',
   }).format(new Date(`${value}T12:00:00`));
+}
+
+export function formatFullDate(value: string) {
+  if (!isValidISODate(value)) {
+    return value;
+  }
+  return new Intl.DateTimeFormat('en-TZ', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+/** The same day next month, or that month's last day when it is shorter. */
+export function addMonth(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return toISODate(new Date(year, month, Math.min(day, lastDay), 12));
 }

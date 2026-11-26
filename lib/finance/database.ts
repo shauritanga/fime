@@ -1,6 +1,14 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { defaultCategories } from './seed';
-import { currentPeriod, periodFromISODate, shiftPeriod, toISODate, todayISO } from './format';
+import {
+  addMonth,
+  currentPeriod,
+  isValidISODate,
+  periodFromISODate,
+  shiftPeriod,
+  toISODate,
+  todayISO,
+} from './format';
 import type {
   Budget,
   BudgetInput,
@@ -257,11 +265,33 @@ export async function createTransaction(db: SQLiteDatabase, input: TransactionIn
   return transaction;
 }
 
+// A monthly limit stays in force until it is changed: a month with no budgets
+// of its own starts with a copy of the latest earlier month's budgets.
+export async function carryBudgetsForward(db: SQLiteDatabase, period: string) {
+  if (period > currentPeriod()) {
+    return;
+  }
+  await db.runAsync(
+    `INSERT OR IGNORE INTO budgets (id, categoryId, limitAmount, period)
+     SELECT 'budget-' || categoryId || '-' || ?, categoryId, limitAmount, ?
+     FROM budgets
+     WHERE period = (SELECT MAX(period) FROM budgets WHERE period < ?)
+       AND NOT EXISTS (SELECT 1 FROM budgets WHERE period = ?)`,
+    period,
+    period,
+    period,
+    period
+  );
+}
+
 export async function listBudgets(db: SQLiteDatabase, period = currentPeriod()) {
+  await carryBudgetsForward(db, period);
   return db.getAllAsync<Budget>('SELECT * FROM budgets WHERE period = ? ORDER BY limitAmount DESC', period);
 }
 
 export async function upsertBudget(db: SQLiteDatabase, input: BudgetInput) {
+  // Carry first, so saving one limit doesn't stop the others from arriving.
+  await carryBudgetsForward(db, input.period);
   const existing = await db.getFirstAsync<Budget>(
     'SELECT * FROM budgets WHERE categoryId = ? AND period = ?',
     input.categoryId,
@@ -379,6 +409,7 @@ export async function createRecurringTransaction(
   return recurring;
 }
 
+/** Records every occurrence that has fallen due, including any that were missed. */
 export async function postDueRecurringTransactions(db: SQLiteDatabase, today = new Date()) {
   const dueBy = toISODate(today);
   const dueItems = await db.getAllAsync<RecurringTransaction>(
@@ -386,37 +417,73 @@ export async function postDueRecurringTransactions(db: SQLiteDatabase, today = n
     dueBy
   );
   let posted = 0;
+  const skipped: Array<{ note: string; reason: 'budget' | 'date' }> = [];
 
   for (const item of dueItems) {
-    if (item.type === 'expense') {
-      try {
-        await ensureExpenseBudget(db, item.categoryId, item.nextDate);
-      } catch (error) {
-        if (error instanceof BudgetRequiredError) {
-          continue;
-        }
-        throw error;
-      }
+    if (!isValidISODate(item.nextDate)) {
+      skipped.push({ note: item.note, reason: 'date' });
+      continue;
     }
 
-    await insertTransaction(db, {
-      id: `txn-${item.id}-${Date.now()}`,
-      amount: item.amount,
-      categoryId: item.categoryId,
-      date: item.nextDate,
-      note: item.note,
-      type: item.type,
-    });
+    let date = item.nextDate;
+    while (date <= dueBy) {
+      if (item.type === 'expense') {
+        try {
+          await ensureExpenseBudget(db, item.categoryId, date);
+        } catch (error) {
+          if (error instanceof BudgetRequiredError) {
+            // Stop here so this occurrence is still due once a budget exists.
+            skipped.push({ note: item.note, reason: 'budget' });
+            break;
+          }
+          throw error;
+        }
+      }
 
-    await db.runAsync(
-      'UPDATE recurring_transactions SET nextDate = ? WHERE id = ?',
-      advanceDate(item.nextDate, item.frequency),
-      item.id
-    );
-    posted += 1;
+      // The id includes the due date, so one occurrence can't be recorded twice.
+      await insertTransaction(db, {
+        id: `txn-${item.id}-${date}`,
+        amount: item.amount,
+        categoryId: item.categoryId,
+        date,
+        note: item.note,
+        type: item.type,
+      });
+      date = advanceDate(date, item.frequency);
+      await db.runAsync('UPDATE recurring_transactions SET nextDate = ? WHERE id = ?', date, item.id);
+      posted += 1;
+    }
   }
 
-  return posted;
+  return { posted, skipped };
+}
+
+/** Records this month's payment as an expense and moves the due date on a month. */
+export async function markSubscriptionPaid(db: SQLiteDatabase, subscriptionId: string) {
+  await db.withTransactionAsync(async () => {
+    const subscription = await db.getFirstAsync<Subscription>(
+      'SELECT * FROM subscriptions WHERE id = ?',
+      subscriptionId
+    );
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+
+    await createTransaction(db, {
+      amount: subscription.amount,
+      categoryId: subscription.categoryId,
+      date: todayISO(),
+      note: subscription.name,
+      type: 'expense',
+    });
+
+    const from = isValidISODate(subscription.nextDueDate) ? subscription.nextDueDate : todayISO();
+    await db.runAsync(
+      'UPDATE subscriptions SET nextDueDate = ? WHERE id = ?',
+      addMonth(from),
+      subscription.id
+    );
+  });
 }
 
 export async function listLoans(db: SQLiteDatabase) {
@@ -670,6 +737,7 @@ async function ensureExpenseBudget(db: SQLiteDatabase, categoryId: string, date:
 }
 
 async function getBudgetForCategoryPeriod(db: SQLiteDatabase, categoryId: string, period: string) {
+  await carryBudgetsForward(db, period);
   return db.getFirstAsync<Budget>(
     'SELECT * FROM budgets WHERE categoryId = ? AND period = ?',
     categoryId,
@@ -727,13 +795,11 @@ async function sumCategorySpend(db: SQLiteDatabase, categoryId: string, period: 
 }
 
 function advanceDate(value: string, frequency: 'weekly' | 'monthly') {
-  const date = new Date(`${value}T12:00:00`);
-
-  if (frequency === 'weekly') {
-    date.setDate(date.getDate() + 7);
-  } else {
-    date.setMonth(date.getMonth() + 1);
+  if (frequency === 'monthly') {
+    return addMonth(value);
   }
 
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + 7);
   return toISODate(date);
 }

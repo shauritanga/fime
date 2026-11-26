@@ -12,7 +12,6 @@ export default function InsightsLayout() {
       }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="budgets" options={{ title: 'Budgets' }} />
-      <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
       <Stack.Screen name="goals" options={{ title: 'Savings Goals' }} />
       <Stack.Screen name="loans" options={{ title: 'Loans' }} />
       <Stack.Screen name="subscriptions" options={{ title: 'Subscriptions' }} />

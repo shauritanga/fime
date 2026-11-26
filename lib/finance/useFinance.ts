@@ -17,6 +17,7 @@ import {
   listSubscriptions,
   listTransactions,
   markLoanReturned,
+  markSubscriptionPaid,
   postDueRecurringTransactions,
   recordLoanRepayment,
   updateSubscription,
@@ -213,10 +214,18 @@ export function useFinance() {
   );
 
   const postDueRecurring = useCallback(async () => {
-    const posted = await postDueRecurringTransactions(db);
+    const result = await postDueRecurringTransactions(db);
     await refresh();
-    return posted;
+    return result;
   }, [db, refresh]);
+
+  const paySubscription = useCallback(
+    async (subscriptionId: string) => {
+      await markSubscriptionPaid(db, subscriptionId);
+      await refresh();
+    },
+    [db, refresh]
+  );
 
   return {
     addTransaction,
@@ -232,6 +241,7 @@ export function useFinance() {
     goals,
     incomeCategories,
     loading,
+    paySubscription,
     postDueRecurring,
     recurringTransactions,
     refresh,

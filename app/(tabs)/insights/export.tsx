@@ -1,5 +1,5 @@
 import { ActionButton, csv } from '@/components/insights-controls';
-import { Card, Muted, Screen, Title } from '@/components/finance-ui';
+import { Card, Muted, Screen } from '@/components/finance-ui';
 import { palette, spacing } from '@/constants/theme';
 import { useFinance } from '@/lib/finance/useFinance';
 import { ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -33,14 +33,9 @@ export default function ExportScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View>
-          <Title>Export</Title>
-          <Muted>Share a CSV copy of your local Fime transactions.</Muted>
-        </View>
-
         <Card tone="soft">
           <Text style={styles.count}>{transactions.length}</Text>
-          <Muted>transactions ready to export</Muted>
+          <Muted>{transactions.length === 1 ? 'transaction' : 'transactions'} ready to export</Muted>
         </Card>
 
         <Card>
