@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5-5"
+    transcribe_model: str = "whisper-large-v3"   # Groq speech-to-text; copes with Swahili
+    max_audio_bytes: int = 3_000_000             # a minute of speech is well under 1 MB
     llm_timeout_seconds: float = 60.0
     max_answer_tokens: int = 1500
 

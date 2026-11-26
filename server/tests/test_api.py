@@ -118,3 +118,38 @@ def test_claude_message_shape():
     assert [m["role"] for m in shaped] == ["user", "assistant", "user"]
     assert shaped[1]["content"] == [{"type": "tool_use", "id": "a"}]
     assert [b["tool_use_id"] for b in shaped[2]["content"]] == ["a", "b"]
+
+
+def upload(data=b"abc" * 100, content_type="audio/mp4"):
+    return client.post("/v1/transcribe", content=data, headers={"Content-Type": content_type})
+
+
+def test_transcribe_in_test_mode():
+    assert upload().json() == {"text": "Analyze my spending this month"}
+
+
+def test_transcribe_rejects_bad_uploads(monkeypatch):
+    assert upload(content_type="text/plain").status_code == 415
+    assert upload(b"").status_code == 422
+    monkeypatch.setattr(settings, "max_audio_bytes", 10)
+    assert upload(b"x" * 11).status_code == 413
+
+
+def test_transcribe_sends_the_recording_to_groq(monkeypatch):
+    sent = {}
+
+    def fake_post(url, headers, files, data, timeout):
+        sent.update(url=url, name=files["file"][0], size=len(files["file"][1]), model=data["model"])
+        return httpx.Response(200, json={"text": " Ninadaiwa kiasi gani "})
+
+    monkeypatch.setattr(settings, "llm_provider", "groq")
+    monkeypatch.setattr(settings, "groq_api_key", "test-key")
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert upload().json() == {"text": "Ninadaiwa kiasi gani"}
+    assert sent["url"].endswith("/audio/transcriptions")
+    assert (sent["name"], sent["size"], sent["model"]) == ("question.m4a", 300, "whisper-large-v3")
+
+
+def test_transcribe_is_rate_limited(monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_per_minute", 1)
+    assert [upload().status_code for _ in range(2)] == [200, 429]

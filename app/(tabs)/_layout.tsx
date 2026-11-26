@@ -1,8 +1,9 @@
 import { SymbolView } from 'expo-symbols';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, router, Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { palette } from '@/constants/theme';
+import { newChat } from '@/lib/assistant/store';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function TabLayout() {
@@ -13,6 +14,8 @@ export default function TabLayout() {
   }
 
   if (!isSignedIn) {
+    // Don't leave one person's conversation for whoever signs in next.
+    newChat();
     return <Redirect href="/login" />;
   }
 
@@ -66,12 +69,18 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* The centre button opens the chat above the tabs, so the tab bar is out of the way. */}
       <Tabs.Screen
-        name="assistant"
+        name="ask"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push('/assistant');
+          },
+        }}
         options={{
           title: 'Assistant',
           tabBarAccessibilityLabel: 'Money assistant',
-          tabBarHideOnKeyboard: true,
           tabBarLabel: () => null,
           tabBarIcon: () => (
             <View style={styles.assistantButton}>
@@ -138,7 +147,7 @@ const styles = StyleSheet.create({
   },
   assistantButton: {
     alignItems: 'center',
-    backgroundColor: palette.slate,
+    backgroundColor: '#100B1A',
     borderRadius: 999,
     height: 48,
     justifyContent: 'center',

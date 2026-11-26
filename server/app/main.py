@@ -11,6 +11,7 @@ from typing import Deque, Dict
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from app import llm
 from app.config import settings
@@ -60,7 +61,8 @@ limiter = Limiter()
 @app.middleware("http")
 async def limit_body(request: Request, call_next):
     length = request.headers.get("content-length", "0")
-    if not length.isdigit() or int(length) > MAX_BODY_BYTES:
+    limit = settings.max_audio_bytes if request.url.path == "/v1/transcribe" else MAX_BODY_BYTES
+    if not length.isdigit() or int(length) > limit:
         return JSONResponse({"detail": "Request is too large."}, status_code=413)
     return await call_next(request)
 
@@ -76,13 +78,45 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/v1/chat")
-def chat(body: ChatRequest, request: Request):
+def enforce_limit(request: Request) -> None:
     ip = request.client.host if request.client else "unknown"
     if settings.trust_proxy:
         ip = request.headers.get("x-forwarded-for", ip).split(",")[0].strip()
     if not limiter.check(ip):
         raise HTTPException(status_code=429, detail="You've reached the question limit. Please try again later.")
+
+
+@app.post("/v1/transcribe")
+async def transcribe(request: Request):
+    """The request body is the recording itself. It stays in memory and is never saved."""
+    enforce_limit(request)
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if content_type not in llm.AUDIO_TYPES:
+        raise HTTPException(status_code=415, detail="That kind of recording isn't supported.")
+    audio = bytearray()
+    # Counted while reading, in case the declared length was missing or wrong.
+    async for chunk in request.stream():
+        audio.extend(chunk)
+        if len(audio) > settings.max_audio_bytes:
+            raise HTTPException(status_code=413, detail="That recording is too long.")
+    if not audio:
+        raise HTTPException(status_code=422, detail="The recording was empty.")
+
+    started = time.time()
+    try:
+        text = await run_in_threadpool(llm.transcribe, bytes(audio), content_type)
+    except llm.Busy:
+        raise HTTPException(status_code=429, detail="The assistant is busy. Please try again in a few seconds.")
+    except llm.ProviderError as error:
+        log.error("Transcription failed: %s", error)
+        raise HTTPException(status_code=502, detail="I couldn't understand the recording. Please try again.")
+    log.info("transcribed bytes=%d ms=%d", len(audio), (time.time() - started) * 1000)
+    return {"text": text[:2000]}
+
+
+@app.post("/v1/chat")
+def chat(body: ChatRequest, request: Request):
+    enforce_limit(request)
 
     # How many times the model has already asked for data since the latest question.
     rounds = 0

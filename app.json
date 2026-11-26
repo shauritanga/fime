@@ -51,6 +51,15 @@
             ]
           }
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Fime uses the microphone only while you record a question for the assistant.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ],
     "experiments": {

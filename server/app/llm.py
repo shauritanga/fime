@@ -11,6 +11,9 @@ from app.prompt import TOOLS
 from app.schemas import Message
 
 
+AUDIO_TYPES = {"audio/mp4": "m4a", "audio/m4a": "m4a", "audio/mpeg": "mp3", "audio/webm": "webm", "audio/wav": "wav"}
+
+
 class Busy(Exception):
     """The provider is rate limiting us."""
 
@@ -109,6 +112,36 @@ def _groq(messages: List[Message], system: str, allow_tools: bool) -> Reply:
         output_tokens=usage.get("completion_tokens", 0),
         model=settings.groq_model,
     )
+
+
+# --------------------------------------------------------------------------- speech to text
+def transcribe(audio: bytes, content_type: str) -> str:
+    """Words from a short recording. Claude has no speech-to-text, so Groq is used either way."""
+    if settings.llm_provider == "mock":
+        return "Analyze my spending this month"
+    if not settings.groq_api_key:
+        raise ProviderError("GROQ_API_KEY is not set.")
+    try:
+        response = httpx.post(
+            f"{settings.groq_base_url.rstrip('/')}/audio/transcriptions",
+            headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+            files={"file": (f"question.{AUDIO_TYPES[content_type]}", audio, content_type)},
+            data={
+                "model": settings.transcribe_model,
+                "response_format": "json",
+                "temperature": "0",
+                # Spelling help for words the model would otherwise guess at.
+                "prompt": "Fime, TSh, shilingi, bajeti, matumizi, mapato, deni, mkopo, akiba.",
+            },
+            timeout=settings.llm_timeout_seconds,
+        )
+    except httpx.HTTPError as err:
+        raise ProviderError(type(err).__name__)
+    if response.status_code == 429:
+        raise Busy()
+    if response.status_code >= 400:
+        raise ProviderError(f"HTTP {response.status_code}")
+    return str(response.json().get("text", "")).strip()
 
 
 # --------------------------------------------------------------------------- Claude

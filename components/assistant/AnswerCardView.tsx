@@ -2,6 +2,7 @@ import { ProgressBar } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
 import type { AnswerCard } from '@/lib/assistant/types';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { assistantFonts as font, assistantTheme as theme } from './theme';
 
 export function AnswerCardView({
   card,
@@ -45,22 +46,20 @@ export function AnswerCardView({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
     marginTop: spacing.sm,
     padding: spacing.md,
   },
   title: {
-    color: palette.muted,
+    color: theme.faint,
+    fontFamily: font.semibold,
     fontSize: 13,
-    fontWeight: '800',
   },
   headline: {
-    color: palette.ink,
+    color: theme.ink,
+    fontFamily: font.bold,
     fontSize: 24,
-    fontWeight: '900',
     marginTop: 2,
   },
   row: {
@@ -78,23 +77,23 @@ const styles = StyleSheet.create({
     width: 10,
   },
   label: {
-    color: palette.ink,
+    color: theme.ink,
     flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: font.semibold,
+    fontSize: 15,
   },
   value: {
-    color: palette.ink,
-    fontSize: 13,
-    fontWeight: '900',
+    color: theme.ink,
+    fontFamily: font.bold,
+    fontSize: 14,
   },
   warning: {
     color: palette.coral,
   },
   detail: {
     color: palette.muted,
+    fontFamily: font.medium,
     fontSize: 12,
-    fontWeight: '600',
   },
   linkButton: {
     justifyContent: 'center',
@@ -102,8 +101,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   link: {
-    color: palette.emerald,
-    fontSize: 14,
-    fontWeight: '900',
+    color: theme.accent,
+    fontFamily: font.bold,
+    fontSize: 15,
   },
 });
