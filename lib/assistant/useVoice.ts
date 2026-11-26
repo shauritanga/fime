@@ -15,9 +15,16 @@ export type VoiceMode = 'dictate' | 'ask';
 
 const MAX_MILLIS = 60_000;
 const MIN_MILLIS = 800;
+// Loudness in dBFS (0 is the maximum). A recording that never gets louder than this has no speech.
+const SILENCE_PEAK = -45;
 
 // Speech needs one channel at a modest bit rate, which keeps uploads small.
-const recordingOptions = { ...RecordingPresets.HIGH_QUALITY, numberOfChannels: 1, bitRate: 64000 };
+const recordingOptions = {
+  ...RecordingPresets.HIGH_QUALITY,
+  numberOfChannels: 1,
+  bitRate: 64000,
+  isMeteringEnabled: true,
+};
 
 async function transcribe(uri: string) {
   if (!assistantUrl) {
@@ -57,7 +64,9 @@ function deleteRecording(uri: string) {
 
 export function useVoice(onText: (text: string, mode: VoiceMode) => void) {
   const recorder = useAudioRecorder(recordingOptions);
-  const { durationMillis } = useAudioRecorderState(recorder, 250);
+  const { durationMillis, metering } = useAudioRecorderState(recorder, 150);
+  // The loudest moment heard so far; `null` if the phone reports no levels.
+  const peakRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const [error, setError] = useState('');
   const modeRef = useRef<VoiceMode>('dictate');
@@ -87,6 +96,7 @@ export function useVoice(onText: (text: string, mode: VoiceMode) => void) {
       }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
+      peakRef.current = null;
       recorder.record();
       modeRef.current = mode;
       setPhase('recording');
@@ -119,6 +129,14 @@ export function useVoice(onText: (text: string, mode: VoiceMode) => void) {
           setPhase('idle');
           return;
         }
+        if (__DEV__) {
+          console.log(`Recording peak: ${peakRef.current} dBFS over ${length} ms`);
+        }
+        if (peakRef.current !== null && peakRef.current < SILENCE_PEAK) {
+          setError("I didn't hear anything. Speak closer to the phone and try again.");
+          setPhase('idle');
+          return;
+        }
         setPhase('transcribing');
         const text = await transcribe(uri);
         if (!mountedRef.current) {
@@ -145,6 +163,12 @@ export function useVoice(onText: (text: string, mode: VoiceMode) => void) {
     },
     [onText, recorder]
   );
+
+  useEffect(() => {
+    if (phase === 'recording' && typeof metering === 'number') {
+      peakRef.current = Math.max(peakRef.current ?? -160, metering);
+    }
+  }, [metering, phase]);
 
   useEffect(() => {
     if (phase === 'recording' && durationMillis >= MAX_MILLIS) {

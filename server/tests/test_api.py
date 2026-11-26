@@ -153,3 +153,15 @@ def test_transcribe_sends_the_recording_to_groq(monkeypatch):
 def test_transcribe_is_rate_limited(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_per_minute", 1)
     assert [upload().status_code for _ in range(2)] == [200, 429]
+
+
+@pytest.mark.parametrize("result, expected", [
+    ({"text": " Thank you.", "segments": [{"avg_logprob": -0.34}]}, ""),
+    ({"text": " .", "segments": [{"avg_logprob": -0.2}]}, ""),
+    ({"text": " I'm sorry, I'm sorry.", "segments": [{"avg_logprob": -1.36}]}, ""),
+    ({"text": " Check my budget", "segments": [{"avg_logprob": -0.3}]}, "Check my budget"),
+    ({"text": " Thank you, now check my budget.", "segments": [{"avg_logprob": -0.3}]}, "Thank you, now check my budget."),
+    ({"text": "Nina deni?", "segments": [{"avg_logprob": -1.4}, {"avg_logprob": -0.5}]}, "Nina deni?"),
+])
+def test_silence_and_noise_are_not_questions(result, expected):
+    assert llm._spoken_words(result) == expected

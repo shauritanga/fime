@@ -128,7 +128,7 @@ def transcribe(audio: bytes, content_type: str) -> str:
             files={"file": (f"question.{AUDIO_TYPES[content_type]}", audio, content_type)},
             data={
                 "model": settings.transcribe_model,
-                "response_format": "json",
+                "response_format": "verbose_json",
                 "temperature": "0",
                 # Spelling help for words the model would otherwise guess at.
                 "prompt": "Fime, TSh, shilingi, bajeti, matumizi, mapato, deni, mkopo, akiba.",
@@ -141,7 +141,21 @@ def transcribe(audio: bytes, content_type: str) -> str:
         raise Busy()
     if response.status_code >= 400:
         raise ProviderError(f"HTTP {response.status_code}")
-    return str(response.json().get("text", "")).strip()
+    return _spoken_words(response.json())
+
+
+# What Whisper tends to "hear" in silence. None of them is a question worth sending.
+_SILENCE_PHRASES = {"", "thank you", "thanks", "you", "bye", "thank you for watching", "thanks for watching"}
+
+
+def _spoken_words(result: Dict[str, Any]) -> str:
+    """The transcript, or nothing when it is most likely silence or noise."""
+    segments = result.get("segments") or []
+    # Below about -1.0 average log probability the model is guessing.
+    if segments and all(s.get("avg_logprob", 0) < -1.0 for s in segments):
+        return ""
+    text = str(result.get("text", "")).strip()
+    return "" if text.strip(" .!?,").lower() in _SILENCE_PHRASES else text
 
 
 # --------------------------------------------------------------------------- Claude
