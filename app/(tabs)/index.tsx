@@ -2,6 +2,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 
 import { ExpenseBarChart } from '@/components/ExpenseBarChart';
 import { IncomeExpenseAreaChart } from '@/components/IncomeExpenseAreaChart';
+import { AddButton } from '@/components/AddButton';
 import { TransactionCard } from '@/components/TransactionCard';
 import { Card, financeStyles, Muted, ProgressBar, Screen } from '@/components/finance-ui';
 import { palette, radii, spacing } from '@/constants/theme';
@@ -176,6 +177,7 @@ export default function HomeScreen() {
           return <TransactionCard category={category} key={transaction.id} transaction={transaction} />;
         })}
       </ScrollView>
+      <AddButton />
     </Screen>
   );
 }
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 96,
   },
   homeHeader: {
     gap: spacing.lg,

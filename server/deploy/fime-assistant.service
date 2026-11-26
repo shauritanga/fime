@@ -1,0 +1,29 @@
+[Unit]
+Description=Fime assistant (relay between the app and the language model)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/fime/server
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/var/www/fime/server/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8190 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+
+# The server is shared: if this service misbehaves, only it is slowed or stopped.
+MemoryHigh=200M
+MemoryMax=250M
+TasksMax=60
+Nice=10
+CPUWeight=50
+
+# Least privilege: it stores nothing, so it needs no writable folders.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -154,6 +154,15 @@ export async function migrateDatabase(db: SQLiteDatabase) {
   }
 }
 
+export async function getSetting(db: SQLiteDatabase, key: string) {
+  const row = await db.getFirstAsync<MetaRow>('SELECT value FROM app_meta WHERE key = ?', key);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: SQLiteDatabase, key: string, value: string) {
+  await db.runAsync('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)', key, value);
+}
+
 export async function listCategories(db: SQLiteDatabase) {
   return db.getAllAsync<Category>('SELECT * FROM categories ORDER BY type DESC, name ASC');
 }

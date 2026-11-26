@@ -1,5 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { Redirect, Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
 import { palette } from '@/constants/theme';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -66,22 +67,26 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="add"
+        name="assistant"
         options={{
-          title: 'Add',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'plus.circle.fill',
-                android: 'add_circle',
-                web: 'add_circle',
-              }}
-              tintColor={color}
-              size={25}
-            />
+          title: 'Assistant',
+          tabBarAccessibilityLabel: 'Money assistant',
+          tabBarHideOnKeyboard: true,
+          tabBarShowLabel: false,
+          tabBarIcon: () => (
+            <View style={styles.assistantButton}>
+              <SymbolView
+                name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
+                tintColor={palette.white}
+                size={26}
+              />
+            </View>
           ),
+          tabBarIconStyle: styles.assistantIcon,
         }}
       />
+      {/* Opened from the + buttons, so it has no tab of its own. */}
+      <Tabs.Screen name="add" options={{ href: null }} />
       <Tabs.Screen
         name="budgets"
         options={{
@@ -125,3 +130,18 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  assistantIcon: {
+    height: 48,
+    width: 48,
+  },
+  assistantButton: {
+    alignItems: 'center',
+    backgroundColor: palette.slate,
+    borderRadius: 999,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+});

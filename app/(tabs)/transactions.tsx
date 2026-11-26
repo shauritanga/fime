@@ -1,3 +1,4 @@
+import { AddButton } from '@/components/AddButton';
 import { BottomSheet } from '@/components/BottomSheet';
 import { MonthPickerSheet } from '@/components/MonthPickerSheet';
 import { TransactionCard } from '@/components/TransactionCard';
@@ -13,10 +14,10 @@ import {
 } from '@/lib/finance/database';
 import { currentPeriod, formatDayHeading, formatPeriod, formatSignedMoney, formatMoney, shiftPeriod } from '@/lib/finance/format';
 import type { Category, Transaction } from '@/lib/finance/types';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 type Filter = 'all' | 'income' | 'expense';
@@ -52,6 +53,18 @@ export default function TransactionsScreen() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [picker, setPicker] = useState<'month' | 'category' | null>(null);
   const requestRef = useRef(0);
+
+  // The assistant's "see where you spent it" links open a particular month or category.
+  const link = useLocalSearchParams<{ period?: string; categoryId?: string; opened?: string }>();
+  useEffect(() => {
+    if (!link.opened) {
+      return;
+    }
+    setQuery('');
+    setFilter('all');
+    setCategoryId(link.categoryId ?? '');
+    setPeriod(link.period || currentPeriod());
+  }, [link.categoryId, link.opened, link.period]);
 
   const searching = query.trim().length > 0;
   const resultsKey = searching ? `search:${query.trim()}:${filter}:${categoryId}` : `month:${period}`;
@@ -301,6 +314,8 @@ export default function TransactionsScreen() {
         }
       />
 
+      <AddButton />
+
       {picker === 'month' ? (
         <MonthPickerSheet
           maxPeriod={maxPeriod}
@@ -401,7 +416,7 @@ function sumByType(transactions: Transaction[], type: Transaction['type']) {
 const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 96,
   },
   headerContent: {
     gap: spacing.sm,

@@ -43,3 +43,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# assistant server
+server/.env
+server/.venv/
+__pycache__/
+.pytest_cache/
