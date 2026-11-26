@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   assistantButton: {
     alignItems: 'center',
-    backgroundColor: '#100B1A',
+    backgroundColor: palette.emerald,
     borderRadius: 999,
     height: 48,
     justifyContent: 'center',

@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from collections import defaultdict, deque
+from datetime import date
 from typing import Deque, Dict
 
 from fastapi import FastAPI, HTTPException, Request
@@ -15,7 +16,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app import llm
 from app.config import settings
-from app.prompt import SYSTEM_PROMPT
+from app.prompt import SYSTEM_PROMPT, date_context
 from app.schemas import ChatRequest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -130,7 +131,7 @@ def chat(body: ChatRequest, request: Request):
     try:
         reply = llm.generate(
             body.messages,
-            f"{SYSTEM_PROMPT}\nToday's date is {body.today}.",
+            f"{SYSTEM_PROMPT}\n{date_context(date.fromisoformat(body.today))}",
             allow_tools=rounds < settings.max_tool_rounds,
         )
     except llm.Busy:

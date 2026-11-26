@@ -3,13 +3,11 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { useSyncExternalStore } from 'react';
 import { askAssistant, AssistantError } from './chat';
-import type { AnswerCard } from './types';
 
 export type Turn = {
   id: number;
   question: string;
   answer?: string;
-  cards: AnswerCard[];
   error?: string;
 };
 
@@ -54,7 +52,7 @@ export async function ask(db: SQLiteDatabase, question: string, retryId?: number
   );
   const controller = new AbortController();
   request = controller;
-  update({ turns: [...others, { id, question: clean, cards: [] }], busy: true });
+  update({ turns: [...others, { id, question: clean }], busy: true });
 
   function finish(changes: Partial<Turn>) {
     // A reply for a chat that has since been cleared is dropped.

@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { todayISO } from '../finance/format';
 import { runTool } from './tools';
-import type { AnswerCard, ToolCall, WireMessage } from './types';
+import type { ToolCall, WireMessage } from './types';
 
 // In development the server runs on the computer and is reached over `adb reverse tcp:8787 tcp:8787`.
 // Release builds need EXPO_PUBLIC_ASSISTANT_URL set to the https address of the deployed server.
@@ -56,7 +56,7 @@ export async function askAssistant(
   question: string,
   history: PastTurn[],
   signal: AbortSignal
-): Promise<{ answer: string; cards: AnswerCard[] }> {
+): Promise<{ answer: string }> {
   if (!assistantUrl) {
     throw new AssistantError('The assistant is not set up in this version yet.');
   }
@@ -68,12 +68,11 @@ export async function askAssistant(
     ]),
     { role: 'user', content: question },
   ];
-  const cards = new Map<string, AnswerCard>();
 
   for (let request = 0; request < MAX_REQUESTS; request += 1) {
     const reply = await post(messages, signal);
     if (!reply.tool_calls?.length) {
-      return { answer: reply.content, cards: [...cards.values()] };
+      return { answer: reply.content };
     }
 
     messages.push({
@@ -85,11 +84,7 @@ export async function askAssistant(
     for (const call of reply.tool_calls) {
       let content: string;
       try {
-        const output = await runTool(db, call.name, call.arguments ?? {});
-        content = JSON.stringify(output.data);
-        if (output.card) {
-          cards.set(output.card.title, output.card);
-        }
+        content = JSON.stringify(await runTool(db, call.name, call.arguments ?? {}));
       } catch (error) {
         console.warn(`Assistant tool ${call.name} failed`, error);
         content = JSON.stringify({ error: 'The data could not be read.' });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { assistantTheme } from './theme';
+import { palette } from '@/constants/theme';
 
 export function TypingDots() {
   const [step, setStep] = useState(0);
@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dot: {
-    backgroundColor: assistantTheme.ink,
+    backgroundColor: palette.slate,
     borderRadius: 999,
     height: 10,
     width: 10,

@@ -1,4 +1,5 @@
 """What the app may send. Limits keep requests small and cheap."""
+from datetime import date
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -50,6 +51,7 @@ class ChatRequest(BaseModel):
 
     @model_validator(mode="after")
     def check(self):
+        date.fromisoformat(self.today)  # rejects dates such as 2026-02-30
         if self.messages[0].role != "user" or self.messages[-1].role not in ("user", "tool"):
             raise ValueError("A conversation must start with a question and await a reply.")
         size = sum(len(m.model_dump_json()) for m in self.messages)

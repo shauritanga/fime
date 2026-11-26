@@ -165,3 +165,17 @@ def test_transcribe_is_rate_limited(monkeypatch):
 ])
 def test_silence_and_noise_are_not_questions(result, expected):
     assert llm._spoken_words(result) == expected
+
+
+def test_dates_are_spelled_out_for_the_model():
+    from datetime import date
+
+    from app.prompt import date_context
+
+    text = date_context(date(2026, 11, 26))
+    for piece in ("Thursday, 2026-11-26", "Yesterday was 2026-11-25", "Monday 2026-11-23", "2026-11-16 to 2026-11-22"):
+        assert piece in text
+
+
+def test_impossible_dates_are_rejected():
+    assert client.post("/v1/chat", json={"today": "2026-02-30", "messages": [user()]}).status_code == 422

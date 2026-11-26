@@ -1,21 +1,11 @@
-import { AnswerCardView } from '@/components/assistant/AnswerCardView';
-import { Backdrop } from '@/components/assistant/Backdrop';
 import { Mascot } from '@/components/assistant/Mascot';
-import { assistantFonts as font, assistantTheme as theme } from '@/components/assistant/theme';
+import { ReplyText } from '@/components/assistant/ReplyText';
 import { TypingDots } from '@/components/assistant/TypingDots';
-import { spacing } from '@/constants/theme';
+import { palette, radii, spacing } from '@/constants/theme';
 import { ask, newChat, useChat } from '@/lib/assistant/store';
-import type { AnswerCard } from '@/lib/assistant/types';
 import { useVoice, type VoiceMode } from '@/lib/assistant/useVoice';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getSetting, setSetting } from '@/lib/finance/database';
-import {
-  Urbanist_400Regular,
-  Urbanist_500Medium,
-  Urbanist_600SemiBold,
-  Urbanist_700Bold,
-  useFonts,
-} from '@expo-google-fonts/urbanist';
 import { Redirect, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
@@ -49,14 +39,11 @@ const suggestions = [
   { icon: icons.save, label: 'How can I save more?', question: 'How can I save more?' },
   { icon: icons.budget, label: 'Check my budget', question: 'Check my budget' },
 ];
-const followUps = ['What bills are coming up?', 'Show my largest expenses', 'Compare with last month'];
 
 export default function AssistantScreen() {
   const db = useSQLiteContext();
   const { isLoading, isSignedIn } = useAuth();
   const { turns, busy } = useChat();
-  // The text falls back to the system font until these arrive.
-  useFonts({ Urbanist_400Regular, Urbanist_500Medium, Urbanist_600SemiBold, Urbanist_700Bold });
   // `null` while the saved choice is being read.
   const [consented, setConsented] = useState<boolean | null>(null);
   const [draft, setDraft] = useState('');
@@ -112,13 +99,6 @@ export default function AssistantScreen() {
     ask(db, question);
   }
 
-  function openLink(link: NonNullable<AnswerCard['link']>) {
-    router.dismissTo({
-      pathname: '/transactions',
-      params: { period: link.period ?? '', categoryId: link.categoryId ?? '', opened: String(Date.now()) },
-    });
-  }
-
   const last = turns[turns.length - 1];
   const recording = voice.phase === 'recording';
   const transcribing = voice.phase === 'transcribing';
@@ -126,7 +106,6 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
-      <Backdrop />
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView behavior="padding" style={styles.flex}>
           <View style={styles.header}>
@@ -144,8 +123,8 @@ export default function AssistantScreen() {
               disabled={!consented}
               onPress={() => setMenu((open) => (open === 'header' ? null : 'header'))}
               style={styles.title}>
-              <Text style={styles.titleText}>Chat Assistant</Text>
-              {consented ? <SymbolView name={icons.chevron} size={20} tintColor={theme.faint} /> : null}
+              <Text style={styles.titleText}>Assistant</Text>
+              {consented ? <SymbolView name={icons.chevron} size={20} tintColor={palette.muted} /> : null}
             </Pressable>
             <Pressable
               accessibilityLabel="New chat"
@@ -223,7 +202,7 @@ export default function AssistantScreen() {
                           key={item.label}
                           onPress={() => send(item.question)}
                           style={({ pressed }) => [styles.suggestion, pressed && styles.pressed]}>
-                          <SymbolView name={item.icon} size={20} tintColor={theme.faint} />
+                          <SymbolView name={item.icon} size={20} tintColor={palette.muted} />
                           <Text style={styles.suggestionText}>{item.label}</Text>
                         </Pressable>
                       ))}
@@ -237,12 +216,7 @@ export default function AssistantScreen() {
                       </View>
                       {turn.answer ? (
                         <View style={styles.answer}>
-                          <View style={styles.bubble}>
-                            <RichText text={turn.answer} />
-                          </View>
-                          {turn.cards.map((card) => (
-                            <AnswerCardView card={card} key={card.title} onOpenLink={openLink} />
-                          ))}
+                          <ReplyText reply={turn.answer} />
                         </View>
                       ) : turn.error ? (
                         <View style={styles.answer}>
@@ -258,15 +232,6 @@ export default function AssistantScreen() {
                   ))
                 )}
 
-                {last?.answer && !busy ? (
-                  <View style={styles.followUps}>
-                    {followUps
-                      .filter((item) => !turns.some((turn) => turn.question === item))
-                      .map((item) => (
-                        <Chip key={item} label={item} onPress={() => send(item)} />
-                      ))}
-                  </View>
-                ) : null}
               </ScrollView>
 
               {menu === 'actions' ? (
@@ -310,7 +275,7 @@ export default function AssistantScreen() {
                     onChangeText={setDraft}
                     onFocus={() => setMenu(null)}
                     placeholder="Ask me anything about your money…"
-                    placeholderTextColor={theme.faint}
+                    placeholderTextColor={palette.muted}
                     style={styles.input}
                     value={draft}
                   />
@@ -361,7 +326,7 @@ export default function AssistantScreen() {
                     <SymbolView
                       name={recording ? icons.check : hasDraft ? icons.send : icons.voice}
                       size={24}
-                      tintColor="#FFFFFF"
+                      tintColor={palette.white}
                     />
                   </Pressable>
                 </View>
@@ -397,7 +362,7 @@ function IconButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [plain ? styles.plainButton : styles.circle, pressed && styles.pressed]}>
-      <SymbolView name={icon} size={26} tintColor={faint ? theme.faint : theme.ink} />
+      <SymbolView name={icon} size={26} tintColor={faint ? palette.muted : palette.ink} />
     </Pressable>
   );
 }
@@ -421,30 +386,9 @@ function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-/** Shows **bold** parts of a reply; everything else is plain text. */
-function RichText({ text }: { text: string }) {
-  return (
-    <Text selectable style={styles.answerText}>
-      {text.split('**').map((part, index) => (
-        <Text key={index} style={index % 2 === 1 ? styles.bold : undefined}>
-          {part}
-        </Text>
-      ))}
-    </Text>
-  );
-}
-
-const shadow = {
-  elevation: 2,
-  shadowColor: '#3B2A63',
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.08,
-  shadowRadius: 16,
-};
-
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: theme.background,
+    backgroundColor: palette.background,
     flex: 1,
   },
   flex: {
@@ -457,17 +401,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   circle: {
-    ...shadow,
     alignItems: 'center',
-    backgroundColor: theme.surface,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 999,
-    height: 52,
+    borderWidth: 1,
+    height: 48,
     justifyContent: 'center',
-    width: 52,
+    width: 48,
   },
   title: {
     alignItems: 'center',
@@ -476,9 +421,9 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   titleText: {
-    color: theme.ink,
-    fontFamily: font.semibold,
+    color: palette.ink,
     fontSize: 19,
+    fontWeight: '900',
   },
   consent: {
     alignItems: 'center',
@@ -486,47 +431,43 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   consentText: {
-    color: theme.faint,
-    fontFamily: font.medium,
-    fontSize: 16,
-    lineHeight: 23,
+    color: palette.muted,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
   },
   notice: {
-    ...shadow,
     alignSelf: 'stretch',
-    backgroundColor: theme.surface,
-    borderRadius: 24,
+    backgroundColor: palette.surfaceMuted,
+    borderRadius: radii.md,
     gap: spacing.xs,
     padding: spacing.md,
   },
   noticeTitle: {
-    color: theme.ink,
-    fontFamily: font.bold,
-    fontSize: 16,
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '900',
   },
   noticeText: {
-    color: theme.ink,
-    fontFamily: font.regular,
-    fontSize: 14,
-    lineHeight: 21,
+    color: palette.ink,
+    fontSize: 13,
+    lineHeight: 20,
   },
   primary: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    backgroundColor: theme.ink,
-    borderRadius: 18,
-    paddingVertical: 16,
+    backgroundColor: palette.emerald,
+    borderRadius: radii.sm,
+    paddingVertical: 15,
   },
   primaryText: {
-    color: '#FFFFFF',
-    fontFamily: font.bold,
+    color: palette.white,
     fontSize: 16,
+    fontWeight: '900',
   },
   messages: {
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    padding: spacing.md,
   },
   welcome: {
     flexGrow: 1,
@@ -538,10 +479,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   greeting: {
-    color: theme.ink,
-    fontFamily: font.bold,
-    fontSize: 30,
-    lineHeight: 37,
+    color: palette.ink,
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 35,
     textAlign: 'center',
   },
   suggestion: {
@@ -551,77 +492,59 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   suggestionText: {
-    color: theme.faint,
-    fontFamily: font.medium,
-    fontSize: 16,
+    color: palette.muted,
+    fontSize: 15,
+    fontWeight: '600',
   },
   question: {
     alignSelf: 'flex-end',
-    backgroundColor: theme.ink,
-    borderRadius: 22,
+    backgroundColor: palette.surfaceMuted,
+    borderRadius: radii.lg,
     maxWidth: '85%',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   questionText: {
-    color: '#FFFFFF',
-    fontFamily: font.medium,
-    fontSize: 16,
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: '600',
   },
   answer: {
     marginTop: spacing.md,
   },
-  bubble: {
-    backgroundColor: theme.surface,
-    borderRadius: 22,
-    padding: spacing.md,
-  },
-  answerText: {
-    color: theme.ink,
-    fontFamily: font.regular,
-    fontSize: 16,
-    lineHeight: 23,
-  },
-  bold: {
-    fontFamily: font.bold,
-  },
   error: {
-    color: theme.error,
-    fontFamily: font.medium,
+    color: palette.coral,
     fontSize: 14,
     marginBottom: spacing.xs,
   },
-  followUps: {
-    alignItems: 'flex-end',
-    gap: spacing.xs,
-  },
   chip: {
-    alignSelf: 'flex-end',
-    borderColor: theme.accentLine,
+    alignSelf: 'flex-start',
+    borderColor: palette.emerald,
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 42,
+    minHeight: 40,
     paddingHorizontal: spacing.md,
   },
   chipText: {
-    color: theme.accent,
-    fontFamily: font.semibold,
-    fontSize: 14,
+    color: palette.emerald,
+    fontSize: 13,
+    fontWeight: '800',
   },
   menu: {
-    ...shadow,
-    backgroundColor: theme.surface,
-    borderRadius: 18,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
+    borderRadius: radii.md,
+    borderWidth: 1,
     elevation: 6,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
     minWidth: 220,
     paddingVertical: 4,
   },
   headerMenu: {
     left: 0,
     position: 'absolute',
-    top: 76,
+    top: 72,
     zIndex: 5,
   },
   actionsMenu: {
@@ -629,48 +552,48 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   menuItem: {
-    borderBottomColor: theme.line,
     justifyContent: 'center',
     minHeight: 48,
     paddingHorizontal: spacing.md,
   },
   menuText: {
-    color: theme.ink,
-    fontFamily: font.semibold,
-    fontSize: 15,
+    color: palette.ink,
+    fontSize: 14,
+    fontWeight: '800',
   },
   voiceError: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   composer: {
-    ...shadow,
-    backgroundColor: theme.surface,
-    borderRadius: 28,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    elevation: 2,
     marginBottom: spacing.xs,
     marginHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingTop: 4,
   },
   input: {
-    color: theme.ink,
-    fontFamily: font.medium,
-    fontSize: 17,
+    color: palette.ink,
+    fontSize: 16,
     maxHeight: 120,
-    minHeight: 52,
-    paddingHorizontal: spacing.xs,
+    minHeight: 50,
+    paddingHorizontal: spacing.sm,
   },
   listening: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
-    minHeight: 52,
-    paddingHorizontal: spacing.xs,
+    minHeight: 50,
+    paddingHorizontal: spacing.sm,
   },
   listeningText: {
-    color: theme.accent,
-    fontFamily: font.semibold,
-    fontSize: 17,
+    color: palette.emerald,
+    fontSize: 16,
+    fontWeight: '800',
   },
   composerRow: {
     alignItems: 'center',
@@ -685,10 +608,10 @@ const styles = StyleSheet.create({
   },
   mainButton: {
     alignItems: 'center',
-    backgroundColor: theme.ink,
-    borderRadius: 18,
-    height: 52,
+    backgroundColor: palette.emerald,
+    borderRadius: radii.md,
+    height: 50,
     justifyContent: 'center',
-    width: 52,
+    width: 50,
   },
 });
