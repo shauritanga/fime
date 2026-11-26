@@ -12,8 +12,8 @@ import urllib.request
 
 CASES = [
     ("Analyze my spending this month", {"spending_summary"}),
-    ("Nimetumia kiasi gani mwezi huu?", {"spending_summary", "find_transactions"}),
-    ("How much did I spend on transport last month?", {"spending_summary", "find_transactions"}),
+    ("Nimetumia kiasi gani mwezi huu?", {"spending_summary", "find_transactions", "period_totals"}),
+    ("How much did I spend on transport last month?", {"spending_summary", "find_transactions", "period_totals"}),
     ("Show my largest expenses", {"find_transactions"}),
     ("Check my budget", {"budget_status"}),
     ("Bajeti yangu ikoje?", {"budget_status"}),
